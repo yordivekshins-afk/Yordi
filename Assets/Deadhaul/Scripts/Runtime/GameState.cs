@@ -56,6 +56,10 @@ namespace Deadhaul
         public Survival Stats { get; private set; } = new Survival();
         public Inventory Inventory { get; private set; } = new Inventory();
         public GameClock Clock { get; private set; } = new GameClock();
+        public Weather Weather { get; private set; }
+        public WeatherState Now;
+        Precipitation precip;
+        WeatherKind lastWeather;
 
         bool spawned;
         V3 pendingSpawn;
@@ -72,6 +76,7 @@ namespace Deadhaul
             Settings.Load();
             AudioListener.volume = Settings.Volume;
             Gen = new WorldGen(Seed);
+            Weather = new Weather(Seed);
 
             var chunkGo = new GameObject("Wereld");
             Chunks = chunkGo.AddComponent<ChunkManager>();
@@ -89,11 +94,18 @@ namespace Deadhaul
             new GameObject("Geluid").AddComponent<Sfx>();
             Combat = new GameObject("Gevechten").AddComponent<CombatSystem>();
             Combat.Init(this);
-            new GameObject("Akkers").AddComponent<Farms>().Init(Chunks);
+            var farms = new GameObject("Akkers").AddComponent<Farms>();
+            farms.Init(Chunks);
+            farms.GrowthScale = () => Weather.SeasonGrowth(Now.Season) * (1f + Now.Rain * 0.5f);
             Vehicles = new GameObject("Voertuigen").AddComponent<VehicleManager>();
             Vehicles.Init(this);
 
             var cam = CreateCamera();
+            precip = new GameObject("Neerslag").AddComponent<Precipitation>();
+            precip.Init(Chunks, cam.transform);
+            Chunks.BlockChanged += (x, y, z, b) => precip.Invalidate(x, z);
+            Chunks.ChunkLoaded += (cx, cz) => { for (int z = 0; z < World.ChunkSize; z++) for (int x = 0; x < World.ChunkSize; x++) precip.Invalidate(cx * World.ChunkSize + x, cz * World.ChunkSize + z); };
+            Environment.Thunder = d => Sfx.Instance.ThunderAt(Player.Cam.transform.position, 60f + d * 340f);
             Player = new GameObject("Speler").AddComponent<PlayerController>();
             Hud = gameObject.AddComponent<Hud>();
             Hud.Init(this);
@@ -241,13 +253,31 @@ namespace Deadhaul
                 spawned = true;
             }
 
+            // weer
+            Now = Weather.Sample(Clock.Time);
+            Environment.Weather = Now;
+            precip.Rain = Now.Rain; precip.Snow = Now.Snow; precip.Dust = Now.RadStorm * 0.7f; precip.Wind = Now.Wind;
+            Sfx.Instance.SetWeather(Mathf.Max(Now.Rain, Now.RadStorm * 0.4f), Now.Wind, Player.Sheltered, dt);
+            if (Now.Kind != lastWeather)
+            {
+                if (!InMenu && spawned)
+                {
+                    if (Now.Kind == WeatherKind.Stralingsstorm) Hud.Banner("Stralingsstorm", "zoek beschutting onder een dak of trek een hazmatpak aan");
+                    else if (Now.Kind == WeatherKind.Onweer) Hud.Message("Er komt onweer aan.");
+                    else if (Now.Kind == WeatherKind.Sneeuw) Hud.Message("Het begint te sneeuwen. Kleed je warm.");
+                    else if (Now.Kind == WeatherKind.Regen) Hud.Message("Het begint te regenen.");
+                    else if (lastWeather == WeatherKind.Stralingsstorm) Hud.Message("De stralingsstorm is voorbij.");
+                }
+                lastWeather = Now.Kind;
+            }
+
             // omgevingsgeluid
             int vx = Mathf.FloorToInt(Player.Pos.X / World.VoxelSize), vz = Mathf.FloorToInt(Player.Pos.Z / World.VoxelSize);
             var city = Gen.CityAt(vx, vz, out float d, out _);
             float inCity = city != null ? Mathf.Clamp01((city.R + 40 - d) / 80f) : 0;
             Sfx.Instance.Ambience(new Sfx.AmbienceState
             {
-                Day = Mathf.Clamp01((Clock.Ambient - 0.3f) / 0.4f), Nature = 1 - inCity, City = inCity, Menu = InMenu ? 1 : 0,
+                Day = Mathf.Clamp01((Clock.Ambient - 0.3f) / 0.4f), Nature = 1 - inCity, City = inCity, Menu = InMenu ? 1 : 0, Rain = Mathf.Max(Now.Rain, Now.Snow),
                 Radiation = Mathf.Clamp01(Player.Radiation * 3f), Listener = Player.Cam.transform.position,
             }, dt);
             if (InMenu) return;

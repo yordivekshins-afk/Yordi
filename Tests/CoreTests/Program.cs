@@ -503,6 +503,37 @@ static class Program
             Check(!ghoulDef.UsesCover, "mutanten zoeken geen dekking, ze stormen op je af");
         }
 
+        Console.WriteLine("Seizoenen en weer");
+        {
+            var weather = new Weather(1337);
+            Check(weather.Sample(7.0 / 24.0).Kind == WeatherKind.Helder, "een nieuw spel begint bij helder weer");
+            Check(Weather.SeasonOf(0.5) == Season.Lente && Weather.SeasonOf(Weather.DaysPerSeason + 0.5) == Season.Zomer && Weather.SeasonOf(Weather.DaysPerSeason * 3 + 0.5) == Season.Winter
+                  && Weather.SeasonOf(Weather.DaysPerSeason * 4 + 0.5) == Season.Lente, "lente → zomer → herfst → winter → lente");
+            var perSeason = new Dictionary<Season, Dictionary<WeatherKind, int>>();
+            float maxJump = 0; var prev = weather.Sample(0);
+            bool wetAfterRain = false; double lastRain = -1;
+            for (double t = 0; t < Weather.DaysPerSeason * 8; t += 1.0 / 24.0 / 60.0 * 10)   // elke 10 speelminuten, twee jaar
+            {
+                var w = weather.Sample(t);
+                if (!perSeason.TryGetValue(w.Season, out var dk)) perSeason[w.Season] = dk = new Dictionary<WeatherKind, int>();
+                dk[w.Kind] = dk.TryGetValue(w.Kind, out var c) ? c + 1 : 1;
+                maxJump = MathF.Max(maxJump, MathF.Abs(w.Rain - prev.Rain) + MathF.Abs(w.Cloud - prev.Cloud));
+                if (w.Rain > 0.7f) lastRain = t;
+                if (lastRain >= 0 && w.Rain < 0.05f && t - lastRain < 1.0 / 24.0 && w.Wetness > 0.3f) wetAfterRain = true;
+                prev = w;
+            }
+            int Count(Season se, WeatherKind k) => perSeason.TryGetValue(se, out var d) && d.TryGetValue(k, out var c) ? c : 0;
+            // bij een seizoenswissel mag de overgang al naar het weer van het volgende seizoen lopen
+            Check(Count(Season.Winter, WeatherKind.Sneeuw) > 50 && Count(Season.Winter, WeatherKind.Onweer) < 20 && Count(Season.Zomer, WeatherKind.Sneeuw) < 20,
+                $"sneeuw in de winter ({Count(Season.Winter, WeatherKind.Sneeuw)}), nauwelijks in de zomer ({Count(Season.Zomer, WeatherKind.Sneeuw)}); onweer niet in de winter ({Count(Season.Winter, WeatherKind.Onweer)})");
+            Check(Count(Season.Herfst, WeatherKind.Regen) > Count(Season.Zomer, WeatherKind.Regen), $"de herfst is natter dan de zomer ({Count(Season.Herfst, WeatherKind.Regen)} tegen {Count(Season.Zomer, WeatherKind.Regen)})");
+            int storms = 0; foreach (Season se in Enum.GetValues(typeof(Season))) storms += Count(se, WeatherKind.Stralingsstorm);
+            Check(storms > 0, $"af en toe een stralingsstorm ({storms} metingen)");
+            Check(maxJump < 0.35f, $"weer verandert geleidelijk (grootste sprong per 10 min: {maxJump:0.00})");
+            Check(wetAfterRain, "na de regen blijft de wereld nog even nat");
+            Check(Weather.SeasonGrowth(Season.Winter) < Weather.SeasonGrowth(Season.Zomer) && Weather.SeasonWarmth(Season.Winter) < 0, "in de winter groeit er weinig en is het koud");
+        }
+
         Console.WriteLine("Biomen, grotten, meubels en explosies");
         {
             var seen = new Dictionary<WorldGen.Biome, int>();

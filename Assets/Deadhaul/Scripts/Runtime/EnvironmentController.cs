@@ -29,6 +29,14 @@ namespace Deadhaul
         ColorAdjustments grade;
 
         public RayTracingQuality RayTracing { get; private set; }
+
+        // weer
+        public WeatherState Weather;
+        Light lightning;
+        float lightningTimer = 8f, flashT, thunderDelay = -1f;
+        VolumetricClouds.CloudPresets currentPreset = VolumetricClouds.CloudPresets.Cloudy;
+        float wetShown = -1f;
+        public System.Action<float> Thunder;       // afstand-vertraging van de donder (voor het geluid)
         public bool RayTracingSupported => SystemInfo.supportsRayTracing;
 
         public void Init(GameClock clock)
@@ -40,6 +48,13 @@ namespace Deadhaul
             moonHd.angularDiameter = 1.6f;
             BuildVolume();
             BuildOcean();
+            var lg = new GameObject("Bliksem");
+            lg.transform.SetParent(transform, false);
+            lg.AddHDLight(LightType.Directional);
+            lightning = lg.GetComponent<Light>();
+            lightning.color = new Color(0.8f, 0.86f, 1f);
+            lightning.shadows = LightShadows.None;
+            lightning.enabled = false;
             SetRayTracing(RayTracingSupported ? RayTracingQuality.Prestatie : RayTracingQuality.Uit);
         }
 
@@ -199,9 +214,59 @@ namespace Deadhaul
             moonHd.useRayTracedShadows = false;
             Moon.shadows = night > 0.5f ? LightShadows.Soft : LightShadows.None;
 
-            // 's nachts dikkere, koelere mist
-            fog.meanFreePath.Override(Mathf.Lerp(320f, 140f, night));
-            fog.albedo.Override(Color.Lerp(new Color(0.86f, 0.84f, 0.8f), new Color(0.55f, 0.62f, 0.75f), night));
+            // 's nachts dikkere, koelere mist; regen, sneeuw en stormen maken het zicht korter
+            var w = Weather;
+            float murk = Mathf.Clamp01(w.Fog + Mathf.Max(w.Rain, w.Snow) * 0.4f);
+            fog.meanFreePath.Override(Mathf.Lerp(Mathf.Lerp(320f, 140f, night), 55f, murk));
+            var fogCol = Color.Lerp(new Color(0.86f, 0.84f, 0.8f), new Color(0.55f, 0.62f, 0.75f), night);
+            fogCol = Color.Lerp(fogCol, new Color(0.62f, 0.65f, 0.68f), w.Cloud * 0.6f);
+            fogCol = Color.Lerp(fogCol, new Color(0.9f, 0.92f, 0.95f), w.Snow * 0.6f);
+            fogCol = Color.Lerp(fogCol, new Color(0.72f, 0.86f, 0.38f), w.RadStorm * 0.8f);
+            fog.albedo.Override(fogCol);
+            grade.colorFilter.Override(Color.Lerp(Color.Lerp(new Color(1f, 0.97f, 0.92f), new Color(0.9f, 0.94f, 1f), w.Cloud * 0.5f), new Color(0.92f, 1f, 0.72f), w.RadStorm * 0.7f));
+            grade.saturation.Override(Mathf.Lerp(-14f, -30f, w.Cloud * 0.6f + w.Snow * 0.3f));
+            // bewolking dempt de zon
+            Sun.intensity *= 1f - 0.8f * w.Cloud;
+            clouds.sunLightDimmer.Override(Mathf.Lerp(1f, 0.35f, w.Cloud));
+            var preset = w.Cloud < 0.3f ? VolumetricClouds.CloudPresets.Sparse : w.Cloud < 0.7f ? VolumetricClouds.CloudPresets.Cloudy
+                : w.Thunder > 0.3f || w.RadStorm > 0.3f ? VolumetricClouds.CloudPresets.Stormy : VolumetricClouds.CloudPresets.Overcast;
+            if (preset != currentPreset) { currentPreset = preset; clouds.cloudPreset = preset; }
+            clouds.globalWindSpeed.Override(new WindParameter.WindParamaterValue { customValue = 20f + w.Wind * 90f, mode = WindParameter.WindOverrideMode.Custom });
+
+            // natte oppervlakken glimmen (met raytracing weerspiegelt de hele straat)
+            if (Mathf.Abs(w.Wetness - wetShown) > 0.02f)
+            {
+                wetShown = w.Wetness;
+                var mat = VoxelAssets.VoxelMaterial;
+                mat.SetFloat("_SmoothnessRemapMin", wetShown * 0.55f);
+            }
+
+            // bliksem
+            if (w.Thunder > 0.2f)
+            {
+                lightningTimer -= Time.deltaTime * w.Thunder;
+                if (lightningTimer <= 0)
+                {
+                    lightningTimer = Random.Range(4f, 16f);
+                    flashT = 0.35f;
+                    lightning.transform.rotation = Quaternion.Euler(Random.Range(35f, 75f), Random.Range(0f, 360f), 0);
+                    thunderDelay = Random.Range(0.3f, 3.5f);
+                }
+            }
+            if (flashT > 0)
+            {
+                flashT -= Time.deltaTime;
+                // twee, drie korte flitsen
+                float f = Mathf.Sin(flashT * 60f) > 0.2f ? 1f : 0.15f;
+                lightning.enabled = true;
+                lightning.intensity = 40000f * f * Mathf.Clamp01(flashT / 0.35f + 0.3f);
+            }
+            else lightning.enabled = false;
+            if (thunderDelay > 0)
+            {
+                thunderDelay -= Time.deltaTime;
+                if (thunderDelay <= 0) Thunder?.Invoke(thunderDelay);
+            }
         }
     }
 

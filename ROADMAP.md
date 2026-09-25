@@ -80,6 +80,15 @@ Werkafspraak uit het dossier blijft: **elke mijlpaal is speelbaar**, en er wordt
   met puin, vuurbal, rook, kettingreacties, schade en cameraschudden
 - Nog te doen: metro's en bunkers, instortende constructies, verdronken kustvlakte
 
+## ✅ M8 – Weer en seizoenen
+
+- Lente, zomer, herfst en winter (5 speldagen elk): de winter is koud en gewassen groeien bijna niet, in de zomer gaat het snel
+- Weer per blok van drie uur met zachte overgangen: helder, bewolkt, regen, onweer met bliksem en donder, sneeuw
+- **Stralingsstormen**: groene lucht, gloeiend stof in de wind en straling buiten — schuil onder een dak of draag een hazmatpak
+- Regen en sneeuw vallen niet door daken; natte straten glimmen (met raytracing weerspiegelen ze de stad)
+- Regen, wind en sneeuw maken het kouder als je buiten staat; regen laat gewassen sneller groeien
+- Nog te doen: sneeuwlaag op de grond, plassen, bevroren meren
+
 ## M7 – Presentatie op AAA-niveau ✅ (eerste deel)
 
 - ✅ Hoofdmenu met filmische achtergrond: de camera draait bij avondlicht rond de speler in de startstad (Doorgaan / Nieuw spel / Instellingen / Afsluiten)

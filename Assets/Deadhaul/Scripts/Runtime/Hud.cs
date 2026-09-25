@@ -301,7 +301,9 @@ namespace Deadhaul
             }
             GUI.EndGroup();
             Fill(new Rect(W / 2 - 1, 8, 2, 12), Accent);
-            GUI.Label(new Rect(W / 2 - 320, 52, 640, 20), c.Label, new GUIStyle(center) { fontSize = 13, normal = { textColor = Dim } });
+            var wx = game.Now;
+            GUI.Label(new Rect(W / 2 - 320, 52, 640, 20), $"{c.Label}   ·   {Weather.SeasonName(wx.Season)}   ·   {Weather.KindName(wx.Kind)}{(game.Player.Sheltered && (wx.Rain > 0.2f || wx.RadStorm > 0.2f) ? " (beschut)" : "")}",
+                new GUIStyle(center) { fontSize = 13, normal = { textColor = wx.RadStorm > 0.3f ? new Color(0.75f, 1f, 0.4f) : Dim } });
             string rt = game.Environment.RayTracingSupported ? game.Environment.RayTracing.ToString() : "niet ondersteund";
             GUI.Label(new Rect(W - 260, 12, 248, 20), $"{fps:0} fps   ·   raytracing: {rt}", new GUIStyle(small) { alignment = TextAnchor.UpperRight });
         }

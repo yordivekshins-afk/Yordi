@@ -37,7 +37,7 @@ namespace UnityEngine
         public Vector3 normalized => this; public static Vector3 operator -(Vector3 a) => a; public static Vector3 operator /(Vector3 a, float s) => a;
         public static Vector3 right, left, down;
     }
-    public struct Quaternion { public static Quaternion identity; public static Quaternion Euler(float x, float y, float z) => default; public static Quaternion LookRotation(Vector3 f) => default;
+    public struct Quaternion { public static Quaternion identity; public static Quaternion FromToRotation(Vector3 a, Vector3 b) => default; public static Quaternion Euler(float x, float y, float z) => default; public static Quaternion LookRotation(Vector3 f) => default;
         public static Quaternion Slerp(Quaternion a, Quaternion b, float t) => a; public static Vector3 operator *(Quaternion q, Vector3 v) => v; public static Quaternion operator *(Quaternion a, Quaternion b) => a; }
     public struct Color { public float r, g, b, a; public Color(float r, float g, float b, float a = 1) { this.r = r; this.g = g; this.b = b; this.a = a; }
         public static Color white, black, grey; public Color linear => this; public static Color Lerp(Color a, Color b, float t) => a; public static Color operator *(Color c, float f) => c; }
@@ -127,7 +127,7 @@ namespace UnityEngine
         public float spatialBlend, minDistance, maxDistance, dopplerLevel, volume, pitch; public AudioRolloffMode rolloffMode; public AudioClip clip; public bool loop;
         public void Play() { } public void Stop() { } public bool isPlaying; public void PlayOneShot(AudioClip c) { } public void PlayOneShot(AudioClip c, float v) { }
     }
-    public static class Random { public static Quaternion rotation; public static Vector3 insideUnitSphere; public static float Range(float a, float b) => a; public static int Range(int a, int b) => a; }
+    public static class Random { public static Quaternion rotation; public static Vector3 insideUnitSphere; public static Vector2 insideUnitCircle; public static float value; public static float Range(float a, float b) => a; public static int Range(int a, int b) => a; }
     public struct RenderParams { public RenderParams(Material m) { material = m; shadowCastingMode = default; receiveShadows = true; } public Material material; public UnityEngine.Rendering.ShadowCastingMode shadowCastingMode; public bool receiveShadows; }
     public static class Graphics { public static void RenderMeshInstanced<T>(in RenderParams rp, Mesh mesh, int submesh, T[] data, int count = -1, int start = 0) where T : unmanaged { } }
     public static class GUIUtility { public static void RotateAroundPivot(float angle, Vector2 pivot) { } }
@@ -164,7 +164,9 @@ namespace UnityEngine.Rendering.HighDefinition
     public class SkyAmbientModeParameter : VolumeParameter<SkyAmbientMode> { }
     public sealed class VisualEnvironment : VolumeComponent { public NoInterpIntParameter skyType; public SkyAmbientModeParameter skyAmbientMode; }
     public sealed class PhysicallyBasedSky : VolumeComponent { public CubemapParameter spaceEmissionTexture; public MinFloatParameter spaceEmissionMultiplier; public ColorParameter groundTint; }
-    public sealed class VolumetricClouds : VolumeComponent { public enum CloudPresets { Sparse, Cloudy, Overcast, Stormy, Custom } public BoolParameter enable; public CloudPresets cloudPreset { get; set; } }
+    public sealed class VolumetricClouds : VolumeComponent { public enum CloudPresets { Sparse, Cloudy, Overcast, Stormy, Custom } public BoolParameter enable; public CloudPresets cloudPreset { get; set; } public ClampedFloatParameter sunLightDimmer; public WindSpeedParameter globalWindSpeed; }
+    public abstract class WindParameter : VolumeParameter<WindParameter.WindParamaterValue> { public enum WindOverrideMode { Custom, Global, Additive, Multiply } public struct WindParamaterValue { public WindOverrideMode mode; public float customValue, additiveValue, multiplyValue; } }
+    public sealed class WindSpeedParameter : WindParameter { }
     public sealed class Fog : VolumeComponent { public BoolParameter enabled, enableVolumetricFog; public MinFloatParameter meanFreePath, depthExtent; public FloatParameter baseHeight, maximumHeight; public ColorParameter albedo; public ClampedFloatParameter anisotropy; }
     public class HDShadowSettings : VolumeComponent { public NoInterpMinFloatParameter maxShadowDistance; public NoInterpClampedIntParameter cascadeShadowSplitCount; }
     public class ContactShadows : VolumeComponentWithQuality { public BoolParameter enable; public ClampedFloatParameter length; }

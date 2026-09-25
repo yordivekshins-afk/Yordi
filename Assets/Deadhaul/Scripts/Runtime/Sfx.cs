@@ -15,7 +15,7 @@ namespace Deadhaul
         const int Rate = 44100;
         readonly Dictionary<string, AudioClip> clips = new Dictionary<string, AudioClip>();
         readonly List<AudioSource> pool = new List<AudioSource>();
-        AudioSource wind, ui, birds, crickets, city, music;
+        AudioSource wind, ui, birds, crickets, city, music, rain;
         float oneShotTimer = 8f;
 
         /// <summary>Wat er om de speler heen is, voor het omgevingsgeluid.</summary>
@@ -63,6 +63,23 @@ namespace Deadhaul
             crickets = Loop(Crickets(), 0);
             city = Loop(CityHum(), 0);
             music = Loop(Music(), 0);
+            rain = Loop(RainLoop(), 0);
+            clips["donder"] = ThunderClip();
+        }
+
+        /// <summary>Regen en wind: binnen onder een dak klinkt regen gedempt.</summary>
+        public void SetWeather(float rainAmount, float windAmount, bool sheltered, float dt)
+        {
+            float k = 1 - Mathf.Exp(-dt * 1.5f);
+            rain.volume = Mathf.Lerp(rain.volume, rainAmount * (sheltered ? 0.12f : 0.4f), k);
+            rain.pitch = sheltered ? 0.7f : 1f;
+            if (wind) wind.volume = Mathf.Lerp(wind.volume, Mathf.Lerp(0.05f, 0.32f, windAmount) * (sheltered ? 0.4f : 1f), k);
+        }
+
+        public void ThunderAt(Vector3 listener, float distance)
+        {
+            var dir = Quaternion.Euler(0, (float)rnd.NextDouble() * 360f, 0) * Vector3.forward;
+            Play("donder", listener + dir * Mathf.Clamp(distance, 20f, 300f) + Vector3.up * 60f, 1f, 0.8f + (float)rnd.NextDouble() * 0.4f, 1500f);
         }
 
         AudioSource Loop(AudioClip c, float vol)
@@ -473,6 +490,38 @@ namespace Deadhaul
                 d[i] = (lp2 * env * 0.5f + bell) * 0.8f;
             }
             return Make("muziek", Seam(d));
+        }
+
+        AudioClip RainLoop()
+        {
+            int n = Rate * 6;
+            var d = new float[n];
+            float lp = 0, hp = 0;
+            for (int i = 0; i < n; i++)
+            {
+                float noise = R();
+                lp += (noise - lp) * 0.25f;
+                hp = noise - lp;
+                float drops = rnd.NextDouble() < 0.004 ? R() * 1.5f : 0;
+                d[i] = (lp * 0.9f + hp * 0.25f) * 0.55f + drops * 0.3f;
+            }
+            return Make("regen", Seam(d));
+        }
+
+        AudioClip ThunderClip()
+        {
+            int n = (int)(Rate * 5f);
+            var d = new float[n];
+            float lp = 0, lp2 = 0;
+            for (int i = 0; i < n; i++)
+            {
+                float t = i / (float)Rate;
+                lp += (R() - lp) * 0.02f; lp2 += (lp - lp2) * 0.05f;
+                float crack = t < 0.15f ? R() * Mathf.Exp(-t * 25f) * 0.5f : 0;
+                float roll = (1 + 0.6f * Mathf.Sin(t * 5.3f) * Mathf.Sin(t * 2.1f)) * Mathf.Exp(-t * 0.8f) * Mathf.Clamp01(t * 8f);
+                d[i] = Mathf.Clamp(crack + lp2 * 14f * roll, -1, 1);
+            }
+            return Make("donder", d);
         }
 
         /// <summary>Laat het einde in het begin overvloeien zodat een lus niet klikt.</summary>

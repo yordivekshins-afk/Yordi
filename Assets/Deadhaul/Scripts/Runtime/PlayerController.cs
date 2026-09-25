@@ -25,6 +25,7 @@ namespace Deadhaul
         public bool Flashlight;
         public float FlashBattery = 1f;
         public float Radiation;                 // straling op deze plek (0..1)
+        public bool Sheltered;                  // een dak boven je hoofd (tegen regen en stralingsstorm)
 
         // wapen
         public bool Aiming, Reloading, FullAuto = true;
@@ -324,8 +325,15 @@ namespace Deadhaul
 
             // ------------------------------------------------ lichaam en straling
             nearFireTimer -= dt;
-            if (nearFireTimer <= 0) { nearFireTimer = 0.5f; NearFire = ScanForFire(); }
+            if (nearFireTimer <= 0)
+            {
+                nearFireTimer = 0.5f; NearFire = ScanForFire();
+                var head = new V3(Pos.X, Pos.Y + 1.6f, Pos.Z);
+                Sheltered = Store.Raycast(head, new V3(0, 1, 0), 40f, false).Hit;
+            }
             Radiation = Game.Gen.RadiationAt(bx, bz, out _);
+            var wx = Game.Now;
+            if (!Sheltered && wx.RadStorm > 0.05f) Radiation = Mathf.Max(Radiation, wx.RadStorm * 0.55f);
             float dose = Radiation * Radiation * 3.5f * (1 - Game.Equipment.Radiation);
             if (Radiation > 0.02f)
             {
@@ -335,7 +343,8 @@ namespace Deadhaul
             float exertion = sprint && hs > 1 ? 2 : hs > 0.5f ? 1 : 0;
             // hoger is kouder: boven de boomgrens vriest het
             float altitude = Pos.Y - (World.Sea + 30) * World.VoxelSize;
-            float ambient = Game.Clock.Ambient - Mathf.Clamp01(altitude / 12f) * 0.45f;
+            float ambient = Game.Clock.Ambient - Mathf.Clamp01(altitude / 12f) * 0.45f + Weather.SeasonWarmth(wx.Season);
+            if (!Sheltered) ambient -= wx.Rain * 0.12f + wx.Snow * 0.1f + wx.Wind * 0.05f;
             Stats.Tick(dt, ambient, exertion, InWater, NearFire, Game.Equipment.Warmth, dose);
         }
 

@@ -13,6 +13,7 @@ namespace Deadhaul
         ChunkManager chunks;
         float timer;
         readonly System.Random rng = new System.Random();
+        public System.Func<float> GrowthScale;       // seizoen en regen
 
         public void Init(ChunkManager c)
         {
@@ -48,7 +49,7 @@ namespace Deadhaul
             if (timer > 0) return;
             timer = Interval;
             grow.Clear();
-            double chance = Farming.GrowChancePerSecond * Interval;
+            double chance = Farming.GrowChancePerSecond * Interval * (GrowthScale?.Invoke() ?? 1f);
             var remove = new List<long>();
             foreach (var kv in seedlings)
             {
