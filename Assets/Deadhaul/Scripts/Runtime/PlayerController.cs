@@ -43,7 +43,7 @@ namespace Deadhaul
         float lastMouseMove = -10;
 
         VoxelCharacter body;
-        Transform highlight, muzzle, viewModel, viewMuzzle, laserDot;
+        Transform highlight, muzzle, viewModel, viewMuzzle;
         Light flash;
         float attackAnim, nearFireTimer, useCooldown, camDist = 3.4f, headBob;
         int mineX = int.MinValue, mineY, mineZ;

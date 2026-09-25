@@ -1,0 +1,25 @@
+name: Tests
+
+on:
+  push:
+    branches: [main, "claude/**"]
+  pull_request:
+
+jobs:
+  tests:
+    name: Kerntests en Unity-typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: false
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Kerntests (wereldgenerator, mesher, gevechten, AI, voertuigen)
+        run: dotnet run --project Tests/CoreTests -c Release
+
+      - name: Unity-scripts compileren tegen API-stubs
+        run: dotnet build Tests/UnityTypeCheck -warnaserror
