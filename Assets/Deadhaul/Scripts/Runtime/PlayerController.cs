@@ -119,6 +119,22 @@ namespace Deadhaul
             }
         }
 
+        float menuOrbit;
+
+        /// <summary>Hoofdmenu: de camera draait langzaam rond boven de startstraat.</summary>
+        void MenuCamera(float dt)
+        {
+            menuOrbit += dt * 2.2f;
+            transform.position = new Vector3(Pos.X, Pos.Y, Pos.Z);
+            body.SetVisible(true);
+            body.Animate(0, false, true, false, 0, dt, 0);
+            var center = transform.position + Vector3.up * 1.4f;
+            var rot = Quaternion.Euler(8f, Yaw + 150f + menuOrbit, 0);
+            Cam.transform.position = center + rot * new Vector3(0.9f, 0.6f, -6.5f);
+            Cam.transform.rotation = Quaternion.LookRotation(center + Vector3.up * 1.2f - Cam.transform.position);
+            Cam.fieldOfView = 50f;
+        }
+
         void Update()
         {
             if (Game == null) return;
@@ -130,6 +146,7 @@ namespace Deadhaul
             bool alive = !Stats.Dead;
             bool worldReady = Chunks.IsLoaded(new Vector3(Pos.X, 0, Pos.Z));
             RefreshTool();
+            if (Game.InMenu) { MenuCamera(dt); return; }
 
             // ------------------------------------------------ kijken
             if (!ui && alive && mouse != null)
@@ -243,7 +260,7 @@ namespace Deadhaul
                 Cam.transform.rotation *= Quaternion.Euler(Random.Range(-1f, 1f) * shake * 2.5f, Random.Range(-1f, 1f) * shake * 2.5f, 0);
             }
             float zoom = HasGun ? Mathf.Lerp(1f, Weapon.Zoom, AimT) : 1f;
-            float baseFov = sprint ? 76f : 70f;
+            float baseFov = Game.Settings.Fov + (sprint ? 6f : 0f);
             Cam.fieldOfView = Mathf.Lerp(Cam.fieldOfView, baseFov / zoom, 1 - Mathf.Exp(-14 * dt));
 
             // first-person wapenmodel
@@ -626,7 +643,7 @@ namespace Deadhaul
             var hit = Store.Raycast(new V3(pivot.x, pivot.y, pivot.z), new V3(back.x, back.y, back.z), want + 0.3f, false);
             Cam.transform.position = pivot + back * (hit.Hit ? Mathf.Max(1f, hit.Distance - 0.3f) : want);
             Cam.transform.rotation = look;
-            Cam.fieldOfView = Mathf.Lerp(Cam.fieldOfView, 68 + Mathf.Abs(v.Speed) * 0.4f, 1 - Mathf.Exp(-4 * dt));
+            Cam.fieldOfView = Mathf.Lerp(Cam.fieldOfView, Game.Settings.Fov - 2 + Mathf.Abs(v.Speed) * 0.4f, 1 - Mathf.Exp(-4 * dt));
             highlight.gameObject.SetActive(false);
             flash.enabled = false;
             Stats.Tick(dt, Game.Clock.Ambient, 0, false, false, Game.Equipment.Warmth, Game.Gen.RadiationAt(Mathf.FloorToInt(Pos.X / World.VoxelSize), Mathf.FloorToInt(Pos.Z / World.VoxelSize), out _) * 2f * (1 - Game.Equipment.Radiation));

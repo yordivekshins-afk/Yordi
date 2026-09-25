@@ -24,7 +24,8 @@ namespace UnityEngine
         public void SetParent(Transform p, bool w) { } public int childCount; public Transform GetChild(int i) => null;
     }
     public struct Vector2 { public float x, y; public Vector2(float a, float b) { x = a; y = b; } public static Vector2 zero; public float magnitude => 0; public float sqrMagnitude => 0;
-        public static Vector2 ClampMagnitude(Vector2 v, float m) => v; public static Vector2 operator *(Vector2 a, float s) => a; }
+        public static Vector2 ClampMagnitude(Vector2 v, float m) => v; public static Vector2 operator *(Vector2 a, float s) => a; public static Vector2 operator *(float s, Vector2 a) => a; public static Vector2 operator /(Vector2 a, float s) => a;
+        public static Vector2 operator -(Vector2 a, Vector2 b) => a; public static Vector2 operator +(Vector2 a, Vector2 b) => a; public static Vector2 operator -(Vector2 a) => a; public Vector2 normalized => this; public static Vector2 up, right; }
     public struct Vector2Int : IEquatable<Vector2Int> { public Vector2Int(int a, int b) { } public bool Equals(Vector2Int o) => true; public static bool operator ==(Vector2Int a, Vector2Int b) => true; public static bool operator !=(Vector2Int a, Vector2Int b) => false; public override bool Equals(object o) => true; public override int GetHashCode() => 0; }
     public struct Vector3
     {
@@ -49,8 +50,9 @@ namespace UnityEngine
         public static float InverseLerp(float a, float b, float t) => a; public static float Sin(float f) => f; public static float Cos(float f) => f; public static float Abs(float f) => f; public static int Abs(int f) => f;
         public static float Exp(float f) => f; public static float Repeat(float t, float l) => t; public static int RoundToInt(float f) => 0; public static int FloorToInt(float f) => 0;
         public static float PerlinNoise(float x, float y) => 0; public const float Rad2Deg = 57.3f; public static float Atan2(float y, float x) => 0; public static float MoveTowards(float a, float b, float d) => a; public static float Sqrt(float f) => f; public static float Sign(float f) => f; public static int Min(int a, int b) => a;
+        public static float DeltaAngle(float a, float b) => a; public static float Round(float f) => f; public static int Clamp(int v, int a, int b) => v; public static int CeilToInt(float f) => 0; public static float Pow(float a, float b) => a; public static float SmoothStep(float a, float b, float t) => a; public static float PingPong(float t, float l) => t;
     }
-    public static class Time { public static float deltaTime, time, unscaledDeltaTime; }
+    public static class Time { public static float deltaTime, time, unscaledDeltaTime, realtimeSinceStartup, unscaledTime; }
     public static class Debug { public static void Log(object o) { } public static void LogWarning(object o) { } public static void LogException(Exception e) { } }
     public static class Application { public static int targetFrameRate; public static string persistentDataPath; public static void Quit() { } }
     public static class SystemInfo { public static bool supportsRayTracing; public static int processorCount; }
@@ -62,7 +64,12 @@ namespace UnityEngine
     public enum LightShadows { None, Hard, Soft }
     public sealed class Light : Behaviour { public LightType type; public Color color; public float intensity, range, spotAngle, innerSpotAngle; public LightShadows shadows; public bool enableSpotReflector; }
     public sealed class Camera : Behaviour { public static Camera main; public float nearClipPlane, farClipPlane, fieldOfView; }
-    public sealed class AudioListener : Behaviour { }
+    public sealed class AudioListener : Behaviour { public static float volume; }
+    public static class PlayerPrefs { public static float GetFloat(string k, float d) => d; public static int GetInt(string k, int d) => d; public static void SetFloat(string k, float v) { } public static void SetInt(string k, int v) { } public static void Save() { } }
+    public struct Color32 { public byte r, g, b, a; public Color32(byte r, byte g, byte b, byte a) { this.r = r; this.g = g; this.b = b; this.a = a; } public static implicit operator Color(Color32 c) => default; public static implicit operator Color32(Color c) => default; }
+    public sealed class Font : Object { public static Font CreateDynamicFontFromOSFont(string[] names, int size) => null; public static Font CreateDynamicFontFromOSFont(string name, int size) => null; public static string[] GetOSInstalledFontNames() => null; }
+    public class RectOffset { public RectOffset() { } public RectOffset(int l, int r, int t, int b) { } public int left, right, top, bottom; }
+    public class GUIContent { public static GUIContent none; public GUIContent(string s) { } }
     public class Collider : Component { }
     public class Renderer : Component { public Material sharedMaterial; public Material[] sharedMaterials; public UnityEngine.Rendering.ShadowCastingMode shadowCastingMode; public bool receiveShadows; }
     public sealed class MeshRenderer : Renderer { }
@@ -82,11 +89,12 @@ namespace UnityEngine
     public class Texture : Object { public FilterMode filterMode; public TextureWrapMode wrapMode; public int anisoLevel; }
     public enum TextureFormat { RGBA32, RGBAHalf }
     public enum FilterMode { Point, Bilinear, Trilinear }
+    public enum ScaleMode { StretchToFill, ScaleAndCrop, ScaleToFit }
     public enum TextureWrapMode { Repeat, Clamp }
     public sealed class Texture2D : Texture
     {
         public Texture2D(int w, int h, TextureFormat f, bool mip, bool linear) { } public Texture2D(int w, int h, TextureFormat f, bool mip) { }
-        public static Texture2D whiteTexture; public void SetPixelData<T>(T[] d, int mip, int start = 0) { } public void Apply(bool a, bool b) { } public void Apply() { } public void SetPixels(Color[] c) { }
+        public static Texture2D whiteTexture; public void SetPixelData<T>(T[] d, int mip, int start = 0) { } public void Apply(bool a, bool b = false) { } public void Apply() { } public void SetPixels(Color[] c) { } public void SetPixel(int x, int y, Color c) { } public void SetPixels32(Color32[] c) { }
         public byte[] EncodeToPNG() => null;
     }
     public enum CubemapFace { PositiveX, NegativeX, PositiveY, NegativeY, PositiveZ, NegativeZ }
@@ -95,14 +103,15 @@ namespace UnityEngine
     public static class QualitySettings { public static string[] names; public static int GetQualityLevel() => 0; public static void SetQualityLevel(int i, bool b) { } public static UnityEngine.Rendering.RenderPipelineAsset renderPipeline; }
     public enum TextAnchor { UpperLeft, UpperCenter, UpperRight, MiddleLeft, MiddleCenter, MiddleRight }
     public enum FontStyle { Normal, Bold }
-    public class GUIStyleState { public Color textColor; }
-    public class GUIStyle { public GUIStyle() { } public GUIStyle(GUIStyle o) { } public bool wordWrap; public int fontSize; public FontStyle fontStyle; public TextAnchor alignment; public bool richText; public GUIStyleState normal, hover; }
+    public class GUIStyleState { public Color textColor; public Texture2D background; }
+    public class GUIStyle { public GUIStyle() { } public GUIStyle(GUIStyle o) { } public bool wordWrap; public int fontSize; public FontStyle fontStyle; public TextAnchor alignment; public bool richText; public GUIStyleState normal, hover, active; public RectOffset padding, border, margin; public Font font; public bool clipping; }
     public class GUISkin { public GUIStyle label, button, box; }
     public static class GUI
     {
         public static GUISkin skin; public static Color color; public static bool enabled; public static Matrix4x4 matrix;
         public static void DrawTexture(Rect r, Texture t) { } public static void Label(Rect r, string s, GUIStyle st) { }
         public static bool Button(Rect r, string s, GUIStyle st) => false; public static Vector2 BeginScrollView(Rect p, Vector2 s, Rect v) => s; public static void EndScrollView() { } public static float HorizontalSlider(Rect r, float v, float a, float b) => v;
+        public static void Box(Rect r, GUIContent c, GUIStyle st) { } public static void Box(Rect r, string s, GUIStyle st) { } public static void BeginGroup(Rect r) { } public static void EndGroup() { } public static void Label(Rect r, string s) { } public static void DrawTexture(Rect r, Texture t, ScaleMode m) { } public static bool Toggle(Rect r, bool v, string s, GUIStyle st) => v; public static bool Toggle(Rect r, bool v, string s) => v; public static Color contentColor, backgroundColor;
     }
     public enum EventType { MouseDown }
     public class Event { public static Event current; public EventType type; public Vector2 mousePosition; public int button; public void Use() { } }
@@ -207,7 +216,7 @@ namespace UnityEngine.InputSystem
     public class Keyboard
     {
         public static Keyboard current; public Controls.KeyControl this[Key k] => null;
-        public Controls.KeyControl lKey, rKey, bKey, wKey, aKey, sKey, dKey, cKey, eKey, qKey, fKey, vKey, hKey, iKey, tabKey, spaceKey, escapeKey, leftShiftKey, leftCtrlKey, f5Key;
+        public Controls.KeyControl lKey, rKey, bKey, wKey, aKey, sKey, dKey, cKey, eKey, qKey, fKey, vKey, hKey, iKey, tabKey, spaceKey, escapeKey, leftShiftKey, leftCtrlKey, f5Key, mKey;
     }
     public class Mouse { public static Mouse current; public Controls.Vector2Control delta, scroll; public Controls.ButtonControl leftButton, rightButton; }
 }

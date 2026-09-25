@@ -77,7 +77,7 @@ namespace Deadhaul
 
         void Update()
         {
-            if (game == null || !game.Ready) return;
+            if (game == null || !game.Ready || game.InMenu) return;
             float dt = Mathf.Min(Time.deltaTime, 0.05f);
             var pp = game.Player.Pos;
             PlayerActor.Pos = pp;

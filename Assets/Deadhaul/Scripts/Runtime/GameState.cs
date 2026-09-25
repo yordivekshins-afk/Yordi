@@ -11,6 +11,28 @@ namespace Deadhaul
     {
         public float MouseSensitivity = 0.09f;
         public int ViewRadius = 10;
+        public float Fov = 70f;
+        public float Volume = 1f;
+        public int RayTracing = -1;         // -1 = standaard van de omgeving
+
+        public void Load()
+        {
+            MouseSensitivity = PlayerPrefs.GetFloat("dh_muis", MouseSensitivity);
+            ViewRadius = PlayerPrefs.GetInt("dh_zicht", ViewRadius);
+            Fov = PlayerPrefs.GetFloat("dh_fov", Fov);
+            Volume = PlayerPrefs.GetFloat("dh_volume", Volume);
+            RayTracing = PlayerPrefs.GetInt("dh_rt", RayTracing);
+        }
+
+        public void Save()
+        {
+            PlayerPrefs.SetFloat("dh_muis", MouseSensitivity);
+            PlayerPrefs.SetInt("dh_zicht", ViewRadius);
+            PlayerPrefs.SetFloat("dh_fov", Fov);
+            PlayerPrefs.SetFloat("dh_volume", Volume);
+            PlayerPrefs.SetInt("dh_rt", RayTracing);
+            PlayerPrefs.Save();
+        }
     }
 
     /// <summary>
@@ -47,6 +69,8 @@ namespace Deadhaul
         void Awake()
         {
             Application.targetFrameRate = -1;
+            Settings.Load();
+            AudioListener.volume = Settings.Volume;
             Gen = new WorldGen(Seed);
 
             var chunkGo = new GameObject("Wereld");
@@ -57,6 +81,7 @@ namespace Deadhaul
             var envGo = new GameObject("Omgeving");
             Environment = envGo.AddComponent<EnvironmentController>();
             Environment.Init(Clock);
+            if (Settings.RayTracing >= 0) Environment.SetRayTracing((RayTracingQuality)Settings.RayTracing);
 
             Campfires = new GameObject("Kampvuren").AddComponent<Campfires>();
             Campfires.Init(Chunks);
@@ -75,7 +100,27 @@ namespace Deadhaul
             Player.Init(this, cam);
             Campfires.Follow = Player.transform;
 
+            // achter het hoofdmenu: de startstad in het avondlicht
+            InMenu = true;
+            NewGame();
+            Clock.Time = 18.8 / 24.0;
+        }
+
+        /// <summary>True zolang het hoofdmenu open staat: geen invoer, overleving of vijanden.</summary>
+        public bool InMenu { get; private set; }
+
+        public void StartContinue()
+        {
             if (!TryLoad()) NewGame();
+            InMenu = false;
+            lastCity = null;
+        }
+
+        public void StartNew()
+        {
+            DeleteSaveAndRestart();
+            InMenu = false;
+            lastCity = null;
         }
 
         Camera CreateCamera()
@@ -187,7 +232,7 @@ namespace Deadhaul
             float dt = Time.deltaTime;
             Chunks.ViewRadius = Settings.ViewRadius;
             Chunks.Tick(Player.transform.position);
-            if (!Hud.Paused) Clock.Tick(dt);
+            if (!Hud.Paused) Clock.Tick(InMenu ? dt * 0.1f : dt);
 
             if (!spawned && Chunks.IsLoaded(new Vector3(pendingSpawn.X, 0, pendingSpawn.Z)))
             {
@@ -195,6 +240,8 @@ namespace Deadhaul
                 Player.Teleport(pendingSpawn);
                 spawned = true;
             }
+
+            if (InMenu) return;
 
             // stadsnaam tonen als je een stad binnenloopt
             int vx = Mathf.FloorToInt(Player.Pos.X / World.VoxelSize), vz = Mathf.FloorToInt(Player.Pos.Z / World.VoxelSize);
@@ -218,7 +265,7 @@ namespace Deadhaul
 
         void OnApplicationQuit()
         {
-            if (spawned && !Stats.Dead) Save();
+            if (spawned && !InMenu && !Stats.Dead) Save();
         }
 
         // ------------------------------------------------------------ opslaan

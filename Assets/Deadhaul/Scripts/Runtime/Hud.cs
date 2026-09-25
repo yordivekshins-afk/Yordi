@@ -20,8 +20,22 @@ namespace Deadhaul
         string banner, bannerSub; float bannerTime = -10;
         float fps, fpsTimer; int fpsFrames;
 
-        GUIStyle label, small, title, huge, button, box, center;
-        Texture2D white, scopeMask;
+        GUIStyle label, small, title, huge, button, box, center, panel, menuButton, display;
+        Texture2D white, scopeMask, panelTex, buttonTex, buttonHover, gradient;
+        Font font, displayFont;
+        public bool MapOpen, SettingsOpen;
+        readonly WorldMap map = new WorldMap();
+        static readonly string[] Tips =
+        {
+            "Sluipen (C) halveert hoe ver vijanden je zien. 's Nachts verraadt een zaklamp je van ver.",
+            "Rauw vlees en vis maken je ziek. Bak ze eerst bij een kampvuur.",
+            "Een demper maakt je wapen niet alleen stil: je mondingsvuur verdwijnt ook.",
+            "Hazmatpak en gasmasker beschermen tegen straling. Jodium haalt het eruit.",
+            "Handelaars zijn open van 8 tot 19 uur. Betaal met doppen.",
+            "Schiet op een rood vat en ren. Snel.",
+            "Een gerepareerde auto maakt lawaai. Iedereen in de buurt hoort je komen.",
+            "Zaai op akkergrond en kom een speldag later terug om te oogsten.",
+        };
         float hitTime = -10; bool hitKill, hitHead;
         int modSlot = -1;
         static readonly Color Ink = new Color(0.92f, 0.89f, 0.8f), Dim = new Color(0.66f, 0.63f, 0.55f), Accent = new Color(0.85f, 0.58f, 0.18f);
@@ -30,7 +44,7 @@ namespace Deadhaul
         public bool LootOpen => loot != null;
         public bool TradeOpen => trade != null;
         public bool VehicleOpen => vehicle != null;
-        public bool CapturesInput => InventoryOpen || LootOpen || TradeOpen || VehicleOpen || Paused || game.Stats.Dead || !game.Ready;
+        public bool CapturesInput => InventoryOpen || LootOpen || TradeOpen || VehicleOpen || MapOpen || Paused || game.InMenu || game.Stats.Dead || !game.Ready;
         Vehicle vehicle;
 
         public void OpenVehicle(Vehicle v) { vehicle = v; InventoryOpen = false; loot = null; trade = null; }
@@ -63,9 +77,14 @@ namespace Deadhaul
             if (fpsTimer > 0.5f) { fps = fpsFrames / fpsTimer; fpsFrames = 0; fpsTimer = 0; }
             var kb = Keyboard.current;
             if (kb == null) return;
+            if (game.InMenu) { if (kb.escapeKey.wasPressedThisFrame) SettingsOpen = false; return; }
+            if (kb.mKey.wasPressedThisFrame && !Paused && !game.Stats.Dead) { MapOpen = !MapOpen; if (MapOpen) map.Request(game.Gen, new Vector2(game.Player.Pos.X, game.Player.Pos.Z)); }
+            map.Poll();
             if (kb.escapeKey.wasPressedThisFrame)
             {
-                if (LootOpen) loot = null;
+                if (SettingsOpen) SettingsOpen = false;
+                else if (MapOpen) MapOpen = false;
+                else if (LootOpen) loot = null;
                 else if (TradeOpen) trade = null;
                 else if (VehicleOpen) vehicle = null;
                 else if (InventoryOpen) InventoryOpen = false;
@@ -80,13 +99,25 @@ namespace Deadhaul
         {
             if (label != null) return;
             white = Texture2D.whiteTexture;
-            label = new GUIStyle(GUI.skin.label) { fontSize = 15, normal = { textColor = Ink }, richText = true };
+            font = Font.CreateDynamicFontFromOSFont(new[] { "Segoe UI", "Bahnschrift", "Arial" }, 16);
+            displayFont = Font.CreateDynamicFontFromOSFont(new[] { "Bahnschrift SemiBold Condensed", "Bahnschrift", "Impact", "Arial Black" }, 48);
+            panelTex = Rounded(32, 7, Panel, Line);
+            buttonTex = Rounded(32, 5, new Color(0.13f, 0.12f, 0.1f, 0.92f), new Color(0.35f, 0.32f, 0.25f, 1f));
+            buttonHover = Rounded(32, 5, new Color(0.24f, 0.18f, 0.09f, 0.95f), Accent);
+            gradient = new Texture2D(256, 1, TextureFormat.RGBA32, false) { wrapMode = TextureWrapMode.Clamp };
+            for (int i = 0; i < 256; i++) gradient.SetPixel(i, 0, new Color(0.02f, 0.02f, 0.015f, Mathf.Lerp(0.92f, 0f, i / 255f)));
+            gradient.Apply();
+            label = new GUIStyle(GUI.skin.label) { font = font, fontSize = 15, normal = { textColor = Ink }, richText = true };
             small = new GUIStyle(label) { fontSize = 12, normal = { textColor = Dim } };
             title = new GUIStyle(label) { fontSize = 22, fontStyle = FontStyle.Bold, normal = { textColor = Accent } };
             huge = new GUIStyle(label) { fontSize = 46, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter, normal = { textColor = Ink } };
             center = new GUIStyle(label) { alignment = TextAnchor.MiddleCenter };
-            button = new GUIStyle(GUI.skin.button) { fontSize = 15, normal = { textColor = Ink }, hover = { textColor = Accent } };
+            button = new GUIStyle(GUI.skin.button) { font = font, fontSize = 15, normal = { textColor = Ink, background = buttonTex }, hover = { textColor = Accent, background = buttonHover }, active = { textColor = Ink, background = buttonHover }, border = new RectOffset(6, 6, 6, 6) };
+            menuButton = new GUIStyle(button) { fontSize = 22, alignment = TextAnchor.MiddleLeft, padding = new RectOffset(22, 10, 4, 4) };
             box = new GUIStyle(GUI.skin.box);
+            panel = new GUIStyle { normal = { background = panelTex }, border = new RectOffset(8, 8, 8, 8) };
+            display = new GUIStyle(label) { font = displayFont, fontSize = 96, normal = { textColor = Ink } };
+            huge.font = displayFont; title.font = font;
             // scope-masker: zwart met een rond gat
             const int S = 256;
             scopeMask = new Texture2D(S, S, TextureFormat.RGBA32, false);
@@ -104,11 +135,25 @@ namespace Deadhaul
 
         void Fill(Rect r, Color c) { var old = GUI.color; GUI.color = c; GUI.DrawTexture(r, white); GUI.color = old; }
 
-        void Frame(Rect r)
+        void Frame(Rect r) { GUI.Box(r, GUIContent.none, panel); }
+
+        /// <summary>Afgerond paneel als 9-slice texture.</summary>
+        static Texture2D Rounded(int size, int radius, Color fill, Color border)
         {
-            Fill(r, Panel);
-            Fill(new Rect(r.x, r.y, r.width, 1), Line); Fill(new Rect(r.x, r.yMax - 1, r.width, 1), Line);
-            Fill(new Rect(r.x, r.y, 1, r.height), Line); Fill(new Rect(r.xMax - 1, r.y, 1, r.height), Line);
+            var t = new Texture2D(size, size, TextureFormat.RGBA32, false) { wrapMode = TextureWrapMode.Clamp, filterMode = FilterMode.Bilinear };
+            for (int y = 0; y < size; y++)
+                for (int x = 0; x < size; x++)
+                {
+                    float cx = Mathf.Clamp(x + 0.5f, radius, size - radius), cy = Mathf.Clamp(y + 0.5f, radius, size - radius);
+                    float d = Mathf.Sqrt((x + 0.5f - cx) * (x + 0.5f - cx) + (y + 0.5f - cy) * (y + 0.5f - cy));
+                    float a = Mathf.Clamp01(radius - d + 0.5f);
+                    bool edge = d > radius - 1.5f || x == 0 || y == 0 || x == size - 1 || y == size - 1;
+                    var c = edge ? border : fill;
+                    c.a *= a;
+                    t.SetPixel(x, y, c);
+                }
+            t.Apply();
+            return t;
         }
 
         static Color IconColor(ItemDef d)
@@ -123,11 +168,17 @@ namespace Deadhaul
             Styles();
             float W = Screen.width, H = Screen.height;
 
+            if (game.InMenu && game.Ready) { MainMenu(W, H); return; }
             if (!game.Ready)
             {
                 Fill(new Rect(0, 0, W, H), new Color(0.03f, 0.03f, 0.025f, 1));
-                GUI.Label(new Rect(0, H * 0.4f, W, 60), "DEADHAUL", huge);
-                GUI.Label(new Rect(0, H * 0.4f + 60, W, 30), $"De wereld wordt opgebouwd… ({game.Chunks.Store.LoadedCount} chunks)", center);
+                GUI.Label(new Rect(0, H * 0.36f, W, 110), "DEADHAUL", new GUIStyle(display) { alignment = TextAnchor.MiddleCenter });
+                float want = Mathf.PI * game.Settings.ViewRadius * game.Settings.ViewRadius * 0.35f;
+                float prog = Mathf.Clamp01(game.Chunks.Store.LoadedCount / Mathf.Max(1, want));
+                Fill(new Rect(W / 2 - 200, H * 0.36f + 130, 400, 4), new Color(1, 1, 1, 0.1f));
+                Fill(new Rect(W / 2 - 200, H * 0.36f + 130, 400 * prog, 4), Accent);
+                GUI.Label(new Rect(0, H * 0.36f + 146, W, 24), "De wereld wordt opgebouwd…", center);
+                GUI.Label(new Rect(W / 2 - 360, H - 90, 720, 50), Tips[(int)(Time.realtimeSinceStartup / 6) % Tips.Length], new GUIStyle(center) { wordWrap = true, normal = { textColor = Dim } });
                 return;
             }
 
@@ -152,7 +203,9 @@ namespace Deadhaul
             if (VehicleOpen) VehicleWindow(W, H);
             if (game.Player.Vehicle != null) DrivingHud(W, H);
             else if (!CapturesInput) Prompts(W, H);
+            if (MapOpen) MapWindow(W, H);
             if (Paused) PauseMenu(W, H);
+            if (SettingsOpen) SettingsWindow(W, H);
 
             // pijn en kou aan de randen van het scherm
             var s = game.Stats;
@@ -220,14 +273,146 @@ namespace Deadhaul
         void TopBar(float W)
         {
             var c = game.Clock;
-            float yaw = Mathf.Repeat(game.Player.Yaw, 360f);
-            string[] dirs = { "N", "NO", "O", "ZO", "Z", "ZW", "W", "NW" };
-            string dir = dirs[Mathf.RoundToInt(yaw / 45f) % 8];
-            var r = new Rect(W / 2 - 120, 12, 240, 32);
+            float yaw = game.Player.Yaw;
+            var r = new Rect(W / 2 - 320, 10, 640, 40);
             Frame(r);
-            GUI.Label(r, $"{c.Label}   ·   {dir}", center);
+            // kompasbalk: ±90 graden rond de kijkrichting
+            GUI.BeginGroup(r);
+            string[] names = { "N", "NO", "O", "ZO", "Z", "ZW", "W", "NW" };
+            for (int a = 0; a < 360; a += 15)
+            {
+                float rel = Mathf.DeltaAngle(yaw, a);
+                if (Mathf.Abs(rel) > 90) continue;
+                float x = r.width / 2 + rel / 90f * (r.width / 2 - 20);
+                bool major = a % 45 == 0;
+                Fill(new Rect(x, major ? 4 : 8, 1, major ? 8 : 4), new Color(1, 1, 1, major ? 0.8f : 0.35f));
+                if (major) GUI.Label(new Rect(x - 20, 12, 40, 22), names[a / 45], new GUIStyle(center) { fontSize = 13, normal = { textColor = a == 0 ? Accent : Ink } });
+            }
+            // plaatsen in de buurt
+            foreach (var m in NearbyPlaces())
+            {
+                var d = m.Pos - new Vector2(game.Player.Pos.X, game.Player.Pos.Z);
+                float ang = Mathf.Atan2(d.x, d.y) * Mathf.Rad2Deg;
+                float rel = Mathf.DeltaAngle(yaw, ang);
+                if (Mathf.Abs(rel) > 90) continue;
+                float x = r.width / 2 + rel / 90f * (r.width / 2 - 20);
+                var col = m.Kind == 1 ? new Color(0.55f, 0.85f, 0.4f) : m.Kind == 2 ? new Color(0.6f, 1f, 0.3f) : Accent;
+                Fill(new Rect(x - 3, 30, 6, 6), col);
+            }
+            GUI.EndGroup();
+            Fill(new Rect(W / 2 - 1, 8, 2, 12), Accent);
+            GUI.Label(new Rect(W / 2 - 320, 52, 640, 20), c.Label, new GUIStyle(center) { fontSize = 13, normal = { textColor = Dim } });
             string rt = game.Environment.RayTracingSupported ? game.Environment.RayTracing.ToString() : "niet ondersteund";
             GUI.Label(new Rect(W - 260, 12, 248, 20), $"{fps:0} fps   ·   raytracing: {rt}", new GUIStyle(small) { alignment = TextAnchor.UpperRight });
+        }
+
+        float placesTimer; readonly List<WorldMap.Marker> places = new List<WorldMap.Marker>();
+        List<WorldMap.Marker> NearbyPlaces()
+        {
+            placesTimer -= Time.unscaledDeltaTime;
+            if (placesTimer > 0) return places;
+            placesTimer = 2f;
+            places.Clear();
+            var gen = game.Gen;
+            int vx = Mathf.FloorToInt(game.Player.Pos.X / World.VoxelSize), vz = Mathf.FloorToInt(game.Player.Pos.Z / World.VoxelSize);
+            int ci = World.FloorDiv(vx, WorldGen.CityCell), cj = World.FloorDiv(vz, WorldGen.CityCell);
+            for (int j = cj - 1; j <= cj + 1; j++)
+                for (int i = ci - 1; i <= ci + 2; i++)
+                {
+                    var city = gen.GetCity(i, j);
+                    if (city != null) places.Add(new WorldMap.Marker { Pos = new Vector2(city.X, city.Z) * World.VoxelSize, Name = city.Name, Kind = 0 });
+                    var st = gen.GetSettlement(i, j);
+                    if (st != null) places.Add(new WorldMap.Marker { Pos = new Vector2(st.X0 + Settlement.W / 2f, st.Z0 + Settlement.D / 2f) * World.VoxelSize, Name = st.Name, Kind = 1 });
+                }
+            return places;
+        }
+
+        void MapWindow(float W, float H)
+        {
+            Fill(new Rect(0, 0, W, H), new Color(0, 0, 0, 0.6f));
+            float size = Mathf.Min(H - 120, 760);
+            var r = new Rect(W / 2 - size / 2 - 150, H / 2 - size / 2, size + 300, size);
+            Frame(r);
+            var mr = new Rect(r.x + 12, r.y + 12, size - 24, size - 24);
+            if (map.Texture == null) { GUI.Label(mr, "De kaart wordt getekend…", center); return; }
+            GUI.DrawTexture(mr, map.Texture);
+            float k = mr.width / WorldMap.Size;
+            GUI.BeginGroup(mr);
+            foreach (var m in map.Markers)
+            {
+                var p = map.ToPixel(m.Pos) * k;
+                if (p.x < 0 || p.y < 0 || p.x > mr.width || p.y > mr.height) continue;
+                var col = m.Kind == 1 ? new Color(0.55f, 0.85f, 0.4f) : m.Kind == 2 ? new Color(0.6f, 1f, 0.3f) : Accent;
+                Fill(new Rect(p.x - 4, p.y - 4, 8, 8), Color.black); Fill(new Rect(p.x - 3, p.y - 3, 6, 6), col);
+                GUI.Label(new Rect(p.x + 8, p.y - 11, 220, 22), $"<b>{m.Name}</b>", new GUIStyle(label) { fontSize = 13 });
+            }
+            var me = map.ToPixel(new Vector2(game.Player.Pos.X, game.Player.Pos.Z)) * k;
+            var old = GUI.matrix;
+            GUIUtility.RotateAroundPivot(game.Player.Yaw, me);
+            Fill(new Rect(me.x - 2, me.y - 10, 4, 12), Color.white);
+            Fill(new Rect(me.x - 6, me.y - 2, 12, 6), Color.white);
+            GUI.matrix = old;
+            Fill(new Rect(me.x - 3, me.y - 3, 6, 6), new Color(0.9f, 0.2f, 0.15f));
+            GUI.EndGroup();
+            float lx = r.x + size + 4;
+            GUI.Label(new Rect(lx, r.y + 16, 280, 30), "Kaart", title);
+            GUI.Label(new Rect(lx, r.y + 52, 280, 200),
+                $"<color=#d9932e>■</color> stad\n<color=#8cd966>■</color> nederzetting\n<color=#99ff4d>■</color> inslagkrater\n<color=#e6332a>■</color> jij\n\n" +
+                $"Schaal: {WorldMap.MetersPerPixel * WorldMap.Size / 1000f:0.0} km breed\nNoord is boven.\n\nM of Esc om te sluiten.", label);
+            if (map.Building) GUI.Label(new Rect(lx, r.yMax - 40, 280, 22), "Bijwerken…", small);
+            else map.Request(game.Gen, new Vector2(game.Player.Pos.X, game.Player.Pos.Z));
+        }
+
+        void MainMenu(float W, float H)
+        {
+            GUI.DrawTexture(new Rect(0, 0, W * 0.55f, H), gradient);
+            float x = 90, y = H * 0.24f;
+            GUI.Label(new Rect(x - 6, y, 900, 120), "DEADHAUL", display);
+            GUI.Label(new Rect(x, y + 104, 700, 30), "Wie brandstof kan stoken, stroom kan opwekken en mensen kan verzamelen, bouwt de nieuwe wereld.", new GUIStyle(label) { fontSize = 16, normal = { textColor = Dim } });
+            y += 170;
+            if (SettingsOpen) return;
+            if (GameState.HasSave)
+            {
+                if (GUI.Button(new Rect(x, y, 380, 52), "Doorgaan", menuButton)) game.StartContinue();
+                y += 62;
+            }
+            if (GUI.Button(new Rect(x, y, 380, 52), GameState.HasSave ? "Nieuw spel" : "Beginnen", menuButton)) game.StartNew();
+            y += 62;
+            if (GUI.Button(new Rect(x, y, 380, 52), "Instellingen", menuButton)) SettingsOpen = true;
+            y += 62;
+            if (GUI.Button(new Rect(x, y, 380, 52), "Afsluiten", menuButton))
+            {
+#if UNITY_EDITOR
+                UnityEditor.EditorApplication.isPlaying = false;
+#else
+                Application.Quit();
+#endif
+            }
+            GUI.Label(new Rect(x, H - 60, 900, 22), "Unity 6 · HDRP " + (game.Environment.RayTracingSupported ? "· raytracing beschikbaar" : "· geen raytracing-kaart gevonden"), small);
+        }
+
+        void SettingsWindow(float W, float H)
+        {
+            var st = game.Settings;
+            var r = new Rect(W / 2 - 280, H / 2 - 250, 560, 500);
+            Frame(r);
+            GUI.Label(new Rect(r.x + 24, r.y + 16, 400, 30), "Instellingen", title);
+            float x = r.x + 30, y = r.y + 64, w = r.width - 60;
+            var env = game.Environment;
+            GUI.enabled = env.RayTracingSupported;
+            if (GUI.Button(new Rect(x, y, w, 34), "Raytracing: " + (env.RayTracingSupported ? env.RayTracing.ToString() : "niet ondersteund"), button)) { env.CycleRayTracing(); st.RayTracing = (int)env.RayTracing; }
+            GUI.enabled = true; y += 48;
+            GUI.Label(new Rect(x, y, w, 22), $"Zichtafstand: {st.ViewRadius * World.ChunkSize * World.VoxelSize:0} m", label); y += 24;
+            st.ViewRadius = Mathf.RoundToInt(GUI.HorizontalSlider(new Rect(x, y, w, 20), st.ViewRadius, 5, 20)); y += 32;
+            GUI.Label(new Rect(x, y, w, 22), $"Gezichtsveld: {st.Fov:0}°", label); y += 24;
+            st.Fov = Mathf.Round(GUI.HorizontalSlider(new Rect(x, y, w, 20), st.Fov, 55, 100)); y += 32;
+            GUI.Label(new Rect(x, y, w, 22), $"Muisgevoeligheid: {st.MouseSensitivity * 100:0}", label); y += 24;
+            st.MouseSensitivity = GUI.HorizontalSlider(new Rect(x, y, w, 20), st.MouseSensitivity, 0.02f, 0.3f); y += 32;
+            GUI.Label(new Rect(x, y, w, 22), $"Volume: {st.Volume * 100:0}%", label); y += 24;
+            st.Volume = GUI.HorizontalSlider(new Rect(x, y, w, 20), st.Volume, 0f, 1f); y += 32;
+            AudioListener.volume = st.Volume;
+            if (GUI.Button(new Rect(x, y, w, 34), "Besturingshulp: " + (ShowHelp ? "aan" : "uit"), button)) ShowHelp = !ShowHelp; y += 44;
+            if (GUI.Button(new Rect(r.xMax - 150, r.yMax - 52, 120, 36), "Klaar", button)) { SettingsOpen = false; st.Save(); }
         }
 
         void Messages(float H)
@@ -354,7 +539,7 @@ namespace Deadhaul
                 "Q eten/gebruiken/aantrekken · 1–6 of scrollen: snelbalk\n" +
                 "Tab rugzak, uitrusting, wapenbank en crafting\n" +
                 "F zaklamp · V first-person · F5 opslaan · Esc menu · H hulp\n" +
-                "E bij een voertuig: repareren, tanken, instappen · hengel: klik op water", small);
+                "E bij een voertuig: repareren, tanken, instappen · hengel: klik op water · M kaart", small);
         }
 
         static readonly string[] SlotNames = { "Hoofd", "Gezicht", "Romp", "Vest", "Rug", "Benen", "Voeten" };
@@ -723,6 +908,7 @@ namespace Deadhaul
             float y = r.y + 84, bw = 320, bx = r.x + 40;
             if (GUI.Button(new Rect(bx, y, bw, 36), "Verder spelen", button)) Paused = false; y += 44;
             if (GUI.Button(new Rect(bx, y, bw, 36), "Opslaan", button)) game.Save(); y += 44;
+            if (GUI.Button(new Rect(bx, y, bw, 36), "Instellingen", button)) SettingsOpen = true; y += 44;
             var env = game.Environment;
             GUI.enabled = env.RayTracingSupported;
             if (GUI.Button(new Rect(bx, y, bw, 36), "Raytracing: " + (env.RayTracingSupported ? env.RayTracing.ToString() : "niet ondersteund"), button)) env.CycleRayTracing();

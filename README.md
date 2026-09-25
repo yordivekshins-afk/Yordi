@@ -19,7 +19,7 @@ Nodig: **Unity 6** (6000.0 of nieuwer) via Unity Hub, Windows. Voor raytracing: 
    (of later via het menu **Deadhaul → Project instellen**).
 5. Het **HDRP Wizard**-venster gaat open: klik op het tabblad **HDRP** op **Fix All**, en op het tabblad
    **HDRP + DXR** ook op **Fix All**. Start Unity opnieuw als dat gevraagd wordt (DirectX 12).
-6. Open de scène `Assets/Deadhaul/Scenes/Deadhaul` en druk op **Play**.
+6. Open de scène `Assets/Deadhaul/Scenes/Deadhaul` en druk op **Play**. Je komt in het hoofdmenu: kies **Doorgaan** of **Nieuw spel**.
 
 ### Besturing
 
@@ -37,7 +37,8 @@ Nodig: **Unity 6** (6000.0 of nieuwer) via Unity Hub, Windows. Voor raytracing: 
 | F | zaklamp |
 | V | first-/third-person |
 | F5 | opslaan |
-| Esc | menu (raytracing aan/uit, zichtafstand, muisgevoeligheid) |
+| M | wereldkaart |
+| Esc | pauzemenu en instellingen (raytracing, zichtafstand, gezichtsveld, muis, volume) |
 
 ## Structuur
 

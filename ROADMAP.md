@@ -77,9 +77,14 @@ Werkafspraak uit het dossier blijft: **elke mijlpaal is speelbaar**, en er wordt
   met puin, vuurbal, rook, kettingreacties, schade en cameraschudden
 - Nog te doen: metro's en bunkers, instortende constructies, verdronken kustvlakte
 
-## M7 – Presentatie op AAA-niveau
+## M7 – Presentatie op AAA-niveau ✅ (eerste deel)
 
-- Hoofdmenu met filmische achtergrond, laadschermen, instellingen (grafisch, audio, besturing)
-- Ontworpen HUD en inventaris in UI Toolkit (vervangt de tijdelijke IMGUI-HUD)
-- Geluid: ambience, voetstappen per ondergrond, wapens, muziek
+- ✅ Hoofdmenu met filmische achtergrond: de camera draait bij avondlicht rond de speler in de startstad (Doorgaan / Nieuw spel / Instellingen / Afsluiten)
+- ✅ Laadscherm met voortgangsbalk en tips
+- ✅ Instellingen (raytracing, zichtafstand, gezichtsveld, muisgevoeligheid, volume), bewaard in PlayerPrefs
+- ✅ Nieuwe HUD-stijl met afgeronde, doorschijnende panelen, kompasbalk met plaatsen in de buurt, en een wereldkaart (M) met reliëf, wegen, gebouwen, akkers, straling, steden, nederzettingen en kraters
+
+Nog te doen:
+- Ontworpen HUD en inventaris in UI Toolkit (vervangt de IMGUI-HUD)
+- Geluid: ambience, voetstappen per ondergrond, opgenomen wapengeluid, muziek
 - Referentie-onderzoek (foto's, games) voor straten, gebouwen en wapens voor een realistische, filmische look
