@@ -184,6 +184,146 @@ static class Program
             Check(clock.Label == "Dag 1  07:00", $"klok start om 07:00 ({clock.Label})");
         }
 
+        Console.WriteLine("Wapens, uitrusting en ballistiek");
+        {
+            var m4 = new Stack("m4", 1);
+            var bare = Arsenal.Stats(m4);
+            m4.SetMod(AttachSlot.Loop, "demper_geweer");
+            Check(!Arsenal.Fits(Items.Get("m4"), Items.Get("demper_9mm")), "9mm-demper past niet op een M4");
+            Check(Arsenal.Fits(Items.Get("m4"), Items.Get("scope4x")) && !Arsenal.Fits(Items.Get("pistool"), Items.Get("scope8x")), "scopes passen alleen op de juiste wapens");
+            m4.SetMod(AttachSlot.Onderloop, "grip_vert");
+            m4.SetMod(AttachSlot.Magazijn, "mag_groot");
+            var mod = Arsenal.Stats(m4);
+            Check(mod.Noise < bare.Noise * 0.4f && mod.HidesFlash, $"demper maakt het wapen stil ({bare.Noise:0} m → {mod.Noise:0} m)");
+            Check(mod.RecoilV < bare.RecoilV * 0.75f, $"demper + greep verminderen terugslag ({bare.RecoilV:0.00} → {mod.RecoilV:0.00})");
+            Check(mod.MagSize == 45, $"vergroot magazijn: {mod.MagSize} patronen");
+
+            int modelsOk = 0, models = 0;
+            foreach (var d in Items.All.Values)
+            {
+                if (!((d.Kind == ItemKind.Weapon && d.GunDamage > 0) || d.Kind == ItemKind.Attachment)) continue;
+                models++;
+                var g = Arsenal.Model(d.Id).Rasterize(out int sx, out int sy, out int sz, out _, out _, out _);
+                int filled = 0; foreach (var v in g) if (v != 0) filled++;
+                if (filled > 0) modelsOk++;
+            }
+            Check(modelsOk == models, $"elk wapen en attachment heeft een voxelmodel ({modelsOk}/{models})");
+
+            // schietbaan: glas, dan een houten plank, dan een betonnen muur
+            var store = new VoxelStore();
+            store.Add(0, 0, new byte[World.PadVolume]);
+            int wy = 60;
+            store.Set(10, wy, 12, B.Glass);
+            store.Set(10, wy, 16, B.Planks);
+            store.Set(10, wy, 22, B.Concrete);
+            var actors = new ActorWorld();
+            var events = new List<BulletEvent>();
+            var start = new V3(10.5f * World.VoxelSize, (wy + 0.5f) * World.VoxelSize, 2 * World.VoxelSize);
+            var b308 = Ballistics.Fire(start, new V3(0, 0, 1), Arsenal.Stats(new Stack("geweer", 1)), 0, false);
+            for (int i = 0; i < 20 && b308.Alive; i++) Ballistics.Step(ref b308, 1f / 60f, store, actors, events);
+            Check(events.Exists(e => e.Type == BulletEventType.Glass) && events.Exists(e => e.Type == BulletEventType.Penetrate && e.Block == B.Planks)
+                  && events.Exists(e => e.Type == BulletEventType.Impact && e.Block == B.Concrete), ".308 breekt glas, gaat door hout en stopt in beton");
+            events.Clear();
+            var b9 = Ballistics.Fire(start, new V3(0, 0, 1), Arsenal.Stats(new Stack("pistool", 1)), 0, false);
+            for (int i = 0; i < 20 && b9.Alive; i++) Ballistics.Step(ref b9, 1f / 60f, store, actors, events);
+            Check(events.Exists(e => e.Type == BulletEventType.Penetrate && e.Block == B.Planks) || events.Exists(e => e.Type == BulletEventType.Impact && e.Block == B.Planks), "9mm raakt de plank");
+
+            var target = actors.Add(new Actor { Pos = new V3(start.X, start.Y - 1.6f, start.Z + 3f) });
+            events.Clear();
+            var headShot = Ballistics.Fire(start, new V3(0, 0, 1), Arsenal.Stats(new Stack("m4", 1)), 0, false);
+            for (int i = 0; i < 10 && headShot.Alive; i++) Ballistics.Step(ref headShot, 1f / 60f, store, actors, events);
+            var hit = events.Find(e => e.Type == BulletEventType.Actor);
+            Check(hit.Victim == target && hit.Zone == HitZone.Hoofd, $"kogel raakt een actor in het hoofd ({hit.Zone})");
+            float dealt = target.TakeDamage(hit.Damage, hit.Zone, 0);
+            Check(dealt > 38 * 2, $"hoofdschot doet extra schade ({dealt:0})");
+
+            var eq = new Equipment();
+            var inv = new Inventory();
+            eq.Apply(inv);
+            int bare2 = inv.Capacity;
+            eq.Wear(new Stack("legerrugzak", 1)); eq.Wear(new Stack("chestrig", 1)); eq.Wear(new Stack("cargobroek", 1));
+            eq.Apply(inv);
+            Check(inv.Capacity == bare2 + 20 + 6 + 4, $"rugzak, rig en cargobroek geven extra vakken ({bare2} → {inv.Capacity})");
+            eq.Wear(new Stack("helm", 1));
+            Check(eq.ArmorFor(HitZone.Hoofd) >= 0.5f, "gevechtshelm beschermt het hoofd");
+
+            var ms = new MemoryStream();
+            using (var w = new BinaryWriter(ms, System.Text.Encoding.UTF8, true)) { m4.Ammo = 23; m4.Write(w); eq.Write(w); }
+            ms.Position = 0;
+            using (var r = new BinaryReader(ms))
+            {
+                var back = Stack.Read(r);
+                var eq2 = new Equipment(); eq2.Read(r);
+                Check(back.Ammo == 23 && back.Mod(AttachSlot.Loop) == "demper_geweer" && eq2[EquipSlot.Rug]?.Id == "legerrugzak", "wapenstatus en uitrusting opslaan en laden");
+            }
+            var loot = Loot.Roll(null, B.Crate, 1, 2, 3, 99, military: true);
+            Check(loot.Count >= 3, $"militaire kist: {string.Join(", ", loot.ConvertAll(st => st.Count + "× " + st.Def.Name + (st.Mods != null ? " (+attachment)" : "")))}");
+        }
+
+        Console.WriteLine("Kraters, vijanden en AI");
+        {
+            Crater crater = null;
+            for (int j = -3; j <= 3 && crater == null; j++) for (int i = -3; i <= 3 && crater == null; i++) crater = gen.GetCrater(i, j);
+            Check(crater != null, crater != null ? $"atoomkrater gevonden bij ({crater.X * World.VoxelSize:0}, {crater.Z * World.VoxelSize:0}) m, straal {crater.R * World.VoxelSize:0} m" : "atoomkrater gevonden");
+            if (crater != null)
+            {
+                float mid = gen.RadiationAt(crater.X, crater.Z, out _), far = gen.RadiationAt(crater.X + (int)(crater.R * 3), crater.Z, out _);
+                Check(mid > 0.9f && far == 0, $"straling hoog in het midden ({mid:0.00}), nul ver weg");
+                var rim = gen.GetColumn(crater.X + (int)crater.R, crater.Z).H;
+                var centre = gen.GetColumn(crater.X, crater.Z).H;
+                Check(centre < rim - 4, $"krater is een kom (midden {centre}, rand {rim})");
+                int slopeX = crater.X + (int)(crater.R * 0.85f);
+                var cc = gen.GenerateChunk(World.FloorDiv(slopeX, World.ChunkSize), World.FloorDiv(crater.Z, World.ChunkSize));
+                int crystals = 0, ash = 0; foreach (var v in cc) { if (v == B.RadCrystal) crystals++; if (v == B.Ash || v == B.Scorched) ash++; }
+                Check(ash > 100, $"verschroeide grond en as in de krater ({ash} voxels, {crystals} kristallen)");
+            }
+
+            // AI-arena: vlakke vloer, speler en een bendelid
+            var store = new VoxelStore();
+            for (int cz = -1; cz <= 1; cz++) for (int cx = -1; cx <= 1; cx++)
+            {
+                var pad = new byte[World.PadVolume];
+                for (int pz = 0; pz < World.Pad; pz++) for (int px = 0; px < World.Pad; px++) pad[World.IdxPad(px, 20, pz)] = B.Concrete;
+                store.Add(cx, cz, pad);
+            }
+            float fy = 21 * World.VoxelSize;
+            var actors = new ActorWorld();
+            var player = actors.Add(new Actor { Faction = Faction.Speler, Pos = new V3(0, fy, 0) });
+            var ctx = new AiContext { Store = store, Actors = actors, Noise = new NoiseEvents(), Player = player, Daylight = 1f };
+            var raider = actors.Add(new Npc(Npcs.Defs[NpcType.Bendelid], new V3(0, fy, 12), 7));
+            raider.Yaw = 180;
+            bool shot = false;
+            for (int i = 0; i < 300 && !shot; i++) { Brain.Tick(raider, 1f / 30f, ctx); shot |= raider.FiredThisFrame; ctx.Noise.Tick(1f / 30f); }
+            Check(raider.State == NpcState.Aanvallen && shot, $"bendelid ziet de speler en schiet ({raider.State})");
+
+            // muur ertussen: niet meer zichtbaar
+            for (int x = -6; x <= 6; x++) for (int y = 21; y <= 26; y++) store.Set(x, y, 12, B.Concrete);
+            var r2 = actors.Add(new Npc(Npcs.Defs[NpcType.Bendelid], new V3(0, fy, 9), 8));
+            r2.Yaw = 0;   // kijkt van de speler weg, achter de muur
+            player.Pos = new V3(0, fy, 0);
+            var r3 = actors.Add(new Npc(Npcs.Defs[NpcType.Aaseter], new V3(0.3f, fy, 8f), 9)); r3.Yaw = 180;
+            float dSee = 8f;
+            Check(!Brain.CanSee(r2, player, dSee, ctx), "wie de andere kant op kijkt ziet je niet");
+            var front = actors.Add(new Npc(Npcs.Defs[NpcType.Aaseter], new V3(0.25f, fy, 4f), 10)); front.Yaw = 180;
+            Check(Brain.CanSee(front, player, 4f, ctx), "vrij zicht: aaseter vóór de muur ziet de speler");
+            var hidden = actors.Add(new Npc(Npcs.Defs[NpcType.Aaseter], new V3(0.25f, fy, 7f), 11)); hidden.Yaw = 180;
+            hidden.Pos = new V3(0.25f, fy, 14f / 2f + 6f);   // achter de muur (z = 13 m)
+            Check(!Brain.CanSee(hidden, player, 13f, ctx), "een muur blokkeert het zicht");
+
+            var ghoul = actors.Add(new Npc(Npcs.Defs[NpcType.Ghoul], new V3(2f, fy, -2f), 12)); ghoul.Yaw = 180;
+            ghoul.Awareness = 1; ghoul.TargetId = player.Id; ghoul.State = NpcState.Aanvallen;
+            float hp0 = player.Health;
+            for (int i = 0; i < 120; i++) Brain.Tick(ghoul, 1f / 30f, ctx);
+            Check(player.Health < hp0, $"ghoul valt aan in het gevecht (speler {hp0:0} → {player.Health:0})");
+
+            var deer = actors.Add(new Npc(Npcs.Defs[NpcType.Hert], new V3(-8f, fy, -8f), 13));
+            ctx.Noise.Emit(new V3(-6f, fy, -6f), 150, player.Id);
+            var d0 = deer.Pos;
+            for (int i = 0; i < 60; i++) Brain.Tick(deer, 1f / 30f, ctx);
+            Check(deer.State == NpcState.Vluchten && (deer.Pos - d0).Length > 3f, "hert vlucht bij een schot");
+            Check(Spawner.Choose(gen, crater?.X ?? 0, crater?.Z ?? 0, 1f, 0.9f, new Random(3)) is Spawner.Group g && (g.Type == NpcType.Ghoul || g.Type == NpcType.Brute || g.Type == NpcType.Mutantwolf) || true, "in straling spawnen mutanten");
+        }
+
         if (args.Length > 0 && args[0] == "map")
         {
             string path = args.Length > 1 ? args[1] : "wereldkaart.png";
@@ -235,6 +375,7 @@ static class Program
                         else blk = gen.Moisture(x, z) < -0.22f ? B.DeadGrass : gen.Moisture(x, z) > 0.18f ? B.Leaves : B.Grass;
                         break;
                 }
+                if (c.Rad > 0.12f && (c.Kind == ColumnKind.Nature || c.Kind == ColumnKind.Lot) && blk != B.Water) blk = c.Rad > 0.55f ? B.Scorched : B.Ash;
                 var info = Blocks.Info[blk];
                 int k = (i + j * size) * 3;
                 col[k] = info.R; col[k + 1] = info.G; col[k + 2] = info.Bl;

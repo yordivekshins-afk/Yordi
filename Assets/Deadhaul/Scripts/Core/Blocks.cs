@@ -29,13 +29,18 @@ namespace Deadhaul.Core
             Rubble = 15, Sidewalk = 16, CarRed = 17, CarBlue = 18, Tire = 19, Campfire = 20, Crate = 21,
             DeadGrass = 22, Roof = 23, Gravel = 24, Plaster = 25, Lamp = 26, Rust = 27, Moss = 28,
             Bedrock = 29, CarGrey = 30, CarWhite = 31, DeadLeaves = 32, Tile = 33, Carpet = 34,
-            Shelf = 35, StoneWall = 36, WoodWall = 37, MetalWall = 38, Barrel = 39, Fence = 40, Crop = 41;
-        public const int Count = 42;
+            Shelf = 35, StoneWall = 36, WoodWall = 37, MetalWall = 38, Barrel = 39, Fence = 40, Crop = 41,
+            Ash = 42, RadCrystal = 43, Sandbag = 44, AmmoCrate = 45, Scorched = 46;
+        public const int Count = 47;
 
         // Kleuren voor personages en voorwerpen (komen niet in de wereld voor)
         public const byte Skin = 200, SkinDark = 201, Hair = 202, Jacket = 203, JacketDark = 204, Jeans = 205,
             Boot = 206, Backpack = 207, Bandana = 208, Gunmetal = 209, Wood = 210, Eye = 211, RaiderCoat = 212,
-            RaiderPants = 213, Strap = 214, Blade = 215;
+            RaiderPants = 213, Strap = 214, Blade = 215,
+            Polymer = 216, Steel = 217, FDE = 218, OD = 219, Brass = 220, Lens = 221, Rubber = 222, Camo = 223, CamoDark = 224,
+            Hazmat = 225, HazmatDark = 226, Sneaker = 227, SneakerSole = 228, Leather = 229, Khaki = 230, Helmet = 231, Plate = 232,
+            Spark = 233, Flash = 234, Tracer = 235, Blood = 236, Dust = 237, MutantSkin = 238, MutantFlesh = 239, Glow = 240,
+            Bone = 241, Fur = 242, FurDark = 243;
     }
 
     [System.Flags]
@@ -122,6 +127,11 @@ namespace Deadhaul.Core
             Def(B.Barrel, "ton", 60, 90, 70, true, 1.8f, null, BlockFlags.Container, metal: 0.5f);
             Def(B.Fence, "hek", 80, 82, 86, true, 1.5f, "schroot", metal: 0.7f);
             Def(B.Crop, "wilde groente", 110, 150, 60, false, 0.1f, "groente", BlockFlags.Foliage);
+            Def(B.Ash, "as", 70, 68, 66, true, 0.5f, "aarde");
+            Def(B.RadCrystal, "stralingskristal", 150, 255, 90, true, 2.5f, "jodium", BlockFlags.Emissive, smooth: 0.8f);
+            Def(B.Sandbag, "zandzakken", 150, 136, 98, true, 1.4f, "zand");
+            Def(B.AmmoCrate, "munitiekist", 72, 84, 56, true, 1.2f, null, BlockFlags.Container, metal: 0.3f);
+            Def(B.Scorched, "verschroeide grond", 46, 40, 36, true, 0.6f, "aarde");
             Def(B.Skin, "huid", 206, 160, 124, true, 1, null);
             Def(B.SkinDark, "huid", 142, 98, 70, true, 1, null);
             Def(B.Hair, "haar", 48, 36, 28, true, 1, null);
@@ -138,6 +148,34 @@ namespace Deadhaul.Core
             Def(B.RaiderPants, "raiderbroek", 70, 60, 48, true, 1, null);
             Def(B.Strap, "riem", 60, 44, 30, true, 1, null);
             Def(B.Blade, "staal", 170, 176, 184, true, 1, null, smooth: 0.7f, metal: 1f);
+            Def(B.Polymer, "polymeer", 30, 31, 33, true, 1, null, smooth: 0.3f);
+            Def(B.Steel, "staal", 62, 64, 68, true, 1, null, smooth: 0.55f, metal: 0.95f);
+            Def(B.FDE, "zandkleur", 164, 136, 96, true, 1, null, smooth: 0.25f);
+            Def(B.OD, "legergroen", 82, 90, 60, true, 1, null);
+            Def(B.Brass, "messing", 196, 156, 70, true, 1, null, smooth: 0.7f, metal: 1f);
+            Def(B.Lens, "lens", 40, 70, 110, true, 1, null, smooth: 0.98f);
+            Def(B.Rubber, "rubber", 22, 22, 24, true, 1, null);
+            Def(B.Camo, "camouflage", 98, 100, 72, true, 1, null);
+            Def(B.CamoDark, "camouflage", 58, 62, 42, true, 1, null);
+            Def(B.Hazmat, "hazmat", 206, 176, 40, true, 1, null, smooth: 0.45f);
+            Def(B.HazmatDark, "hazmat", 88, 78, 30, true, 1, null);
+            Def(B.Sneaker, "sneaker", 214, 214, 208, true, 1, null);
+            Def(B.SneakerSole, "zool", 236, 236, 232, true, 1, null);
+            Def(B.Leather, "leer", 88, 58, 38, true, 1, null, smooth: 0.35f);
+            Def(B.Khaki, "kaki", 152, 138, 102, true, 1, null);
+            Def(B.Helmet, "helm", 74, 82, 60, true, 1, null, smooth: 0.2f);
+            Def(B.Plate, "plaat", 70, 72, 66, true, 1, null);
+            Def(B.Spark, "vonk", 255, 196, 110, true, 1, null, BlockFlags.Emissive);
+            Def(B.Flash, "mondingsvuur", 255, 226, 160, true, 1, null, BlockFlags.Emissive);
+            Def(B.Tracer, "lichtspoor", 255, 160, 70, true, 1, null, BlockFlags.Emissive);
+            Def(B.Blood, "bloed", 104, 8, 8, true, 1, null, smooth: 0.6f);
+            Def(B.Dust, "stof", 150, 140, 122, true, 1, null);
+            Def(B.MutantSkin, "mutantenhuid", 118, 132, 96, true, 1, null, smooth: 0.4f);
+            Def(B.MutantFlesh, "rauw vlees", 146, 58, 58, true, 1, null, smooth: 0.5f);
+            Def(B.Glow, "straling", 150, 255, 90, true, 1, null, BlockFlags.Emissive);
+            Def(B.Bone, "bot", 220, 212, 186, true, 1, null);
+            Def(B.Fur, "vacht", 96, 80, 62, true, 1, null);
+            Def(B.FurDark, "vacht", 56, 48, 40, true, 1, null);
             for (int i = 0; i < 256; i++)
             {
                 if (Info[i] == null) Def((byte)i, "?", 255, 0, 255, true, 1, null);

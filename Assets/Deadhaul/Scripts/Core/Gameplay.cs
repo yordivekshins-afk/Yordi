@@ -4,7 +4,7 @@ using System.IO;
 
 namespace Deadhaul.Core
 {
-    public enum ItemKind { Material, Food, Drink, Medical, Tool, Weapon, Ammo, Block, Misc }
+    public enum ItemKind { Material, Food, Drink, Medical, Tool, Weapon, Ammo, Block, Misc, Attachment, Clothing }
 
     public sealed class ItemDef
     {
@@ -14,13 +14,43 @@ namespace Deadhaul.Core
         public float Weight;             // kg per stuk
         public float Food, Water, Heal;  // bij gebruik
         public bool StopsBleeding, CuresSickness;
+        public float SickChance;         // kans op ziekte bij eten (rauw vlees)
         public byte PlaceBlock;          // voor bouwmateriaal: welk blok je neerzet
         public float MeleeDamage, MineSpeed = 1f, WoodSpeed = 1f;
-        public float GunDamage;          // voor vuurwapens
+        public float GunDamage;          // voor vuurwapens: schade per kogel (per hagelkorrel bij shotguns)
         public string AmmoId;
         public int MagSize;
         public float FireInterval = 0.5f;
         public byte IconBlock;           // kleur voor het icoon
+
+        // vuurwapens (zie Arsenal)
+        public WeaponClass Class;
+        public bool Automatic;
+        public int Pellets = 1;
+        public float Spread = 1f;        // graden, heupvuur in stilstand
+        public float RecoilV = 1f, RecoilH = 0.3f;
+        public float MuzzleVelocity = 380f;
+        public float ReloadTime = 2f;
+        public float Noise = 150f;       // meter
+        public AttachMask Mounts;        // welke attachments passen
+
+        // attachments
+        public AttachSlot AttachSlot;
+        public float RecoilMul = 1f, SpreadMul = 1f, NoiseMul = 1f, AdsTimeMul = 1f, VelocityMul = 1f;
+        public float Zoom = 1f;          // vergroting bij richten
+        public int ExtraMag;
+        public bool Flashlight, Laser, HidesFlash;
+        public WeaponClass FitsClasses = (WeaponClass)0xFF;
+
+        // kleding en uitrusting
+        public EquipSlot Equip = EquipSlot.None;
+        public int Capacity;             // extra rugzakvakken
+        public float CarryBonus;         // extra draaggewicht in kg
+        public float Warmth;             // 0..1
+        public float Armor;              // 0..1 schadereductie op het bedekte lichaamsdeel
+        public float RadProtection;      // 0..1
+        public byte Color1, Color2;      // kleuren op het personage
+        public int Style;                // variant van het model
     }
 
     public static class Items
@@ -47,20 +77,21 @@ namespace Deadhaul.Core
             Add(new ItemDef { Id = "bonen", Name = "Blik bonen", Kind = ItemKind.Food, MaxStack = 5, Weight = 0.45f, Food = 35, Water = 5, IconBlock = B.Metal });
             Add(new ItemDef { Id = "chips", Name = "Zak chips", Kind = ItemKind.Food, MaxStack = 5, Weight = 0.15f, Food = 15, Water = -5, IconBlock = B.CarRed });
             Add(new ItemDef { Id = "groente", Name = "Wilde groente", Kind = ItemKind.Food, MaxStack = 10, Weight = 0.2f, Food = 10, Water = 5, IconBlock = B.Crop });
+            Add(new ItemDef { Id = "vlees", Name = "Rauw vlees", Kind = ItemKind.Food, MaxStack = 6, Weight = 0.5f, Food = 14, SickChance = 0.45f, IconBlock = B.MutantFlesh, Description = "Bak het boven een kampvuur." });
+            Add(new ItemDef { Id = "gebakken_vlees", Name = "Gebakken vlees", Kind = ItemKind.Food, MaxStack = 6, Weight = 0.4f, Food = 40, Water = -3, IconBlock = B.Leather });
+            Add(new ItemDef { Id = "vacht", Name = "Vacht", Kind = ItemKind.Material, MaxStack = 5, Weight = 0.8f, IconBlock = B.Fur, Description = "Voor warme kleding." });
             Add(new ItemDef { Id = "water", Name = "Fles water", Kind = ItemKind.Drink, MaxStack = 4, Weight = 1f, Water = 45, IconBlock = B.Glass });
             Add(new ItemDef { Id = "frisdrank", Name = "Frisdrank", Kind = ItemKind.Drink, MaxStack = 4, Weight = 0.35f, Water = 25, Food = 5, IconBlock = B.CarBlue });
             // medisch
             Add(new ItemDef { Id = "verband", Name = "Verband", Kind = ItemKind.Medical, MaxStack = 6, Weight = 0.05f, Heal = 10, StopsBleeding = true, IconBlock = B.Plaster, Description = "Stopt bloedingen." });
             Add(new ItemDef { Id = "medkit", Name = "EHBO-kit", Kind = ItemKind.Medical, MaxStack = 2, Weight = 0.6f, Heal = 55, StopsBleeding = true, IconBlock = B.CarWhite });
+            Add(new ItemDef { Id = "jodium", Name = "Jodiumtabletten", Kind = ItemKind.Medical, MaxStack = 10, Weight = 0.02f, IconBlock = B.Glow, Description = "Verlaagt de opgenomen straling." });
             Add(new ItemDef { Id = "antibiotica", Name = "Antibiotica", Kind = ItemKind.Medical, MaxStack = 4, Weight = 0.05f, CuresSickness = true, IconBlock = B.Tile, Description = "Geneest ziekte van vies water." });
             // gereedschap en wapens
             Add(new ItemDef { Id = "pijp", Name = "Loden pijp", Kind = ItemKind.Weapon, Weight = 1.5f, MeleeDamage = 28, MineSpeed = 1.3f, IconBlock = B.Gunmetal });
             Add(new ItemDef { Id = "bijl", Name = "Bijl", Kind = ItemKind.Tool, Weight = 1.8f, MeleeDamage = 32, MineSpeed = 1.2f, WoodSpeed = 3.5f, IconBlock = B.Blade });
             Add(new ItemDef { Id = "breekijzer", Name = "Breekijzer", Kind = ItemKind.Tool, Weight = 1.6f, MeleeDamage = 24, MineSpeed = 3f, IconBlock = B.Rust, Description = "Sloopt steen en metaal veel sneller." });
-            Add(new ItemDef { Id = "pistool", Name = "Pistool", Kind = ItemKind.Weapon, Weight = 0.9f, GunDamage = 34, AmmoId = "9mm", MagSize = 12, FireInterval = 0.28f, IconBlock = B.Gunmetal });
-            Add(new ItemDef { Id = "geweer", Name = "Jachtgeweer", Kind = ItemKind.Weapon, Weight = 3.4f, GunDamage = 85, AmmoId = "308", MagSize = 5, FireInterval = 1.1f, IconBlock = B.Wood });
-            Add(new ItemDef { Id = "9mm", Name = "9mm-patronen", Kind = ItemKind.Ammo, MaxStack = 60, Weight = 0.012f, IconBlock = B.RoadLine });
-            Add(new ItemDef { Id = "308", Name = ".308-patronen", Kind = ItemKind.Ammo, MaxStack = 30, Weight = 0.025f, IconBlock = B.RoadLine });
+            Arsenal.Register(d => Add(d));
         }
     }
 
@@ -69,20 +100,54 @@ namespace Deadhaul.Core
     {
         public string Id;
         public int Count;
+        public int Ammo;                 // geladen patronen (vuurwapens)
+        public string[] Mods;            // attachments per AttachSlot (vuurwapens)
         public bool Empty => Id == null || Count <= 0;
         public ItemDef Def => Items.Get(Id);
         public static readonly Stack None = new Stack();
-        public Stack(string id, int count) { Id = id; Count = count; }
+        public Stack(string id, int count) { Id = id; Count = count; Ammo = 0; Mods = null; }
+
+        public string Mod(AttachSlot slot) => Mods == null ? null : Mods[(int)slot];
+
+        public void SetMod(AttachSlot slot, string id)
+        {
+            if (Mods == null) Mods = new string[Arsenal.AttachSlotCount];
+            Mods[(int)slot] = id;
+        }
+
+        public void Write(BinaryWriter w)
+        {
+            w.Write(Id ?? ""); w.Write(Count); w.Write(Ammo);
+            int n = Mods == null ? 0 : Mods.Length;
+            w.Write((byte)n);
+            for (int i = 0; i < n; i++) w.Write(Mods[i] ?? "");
+        }
+
+        public static Stack Read(BinaryReader r)
+        {
+            var s = new Stack(r.ReadString(), r.ReadInt32()) { Ammo = r.ReadInt32() };
+            int n = r.ReadByte();
+            for (int i = 0; i < n; i++)
+            {
+                string m = r.ReadString();
+                if (!string.IsNullOrEmpty(m) && i < Arsenal.AttachSlotCount) s.SetMod((AttachSlot)i, m);
+            }
+            if (string.IsNullOrEmpty(s.Id) || Items.Get(s.Id) == null) return None;
+            return s;
+        }
     }
 
     /// <summary>Rugzak met vakken; de eerste 6 zijn de snelbalk.</summary>
     public sealed class Inventory
     {
         public const int HotbarSize = 6;
+        public const int MaxSlots = 48;
         public readonly Stack[] Slots;
         public float MaxWeight = 30f;
+        /// <summary>Aantal bruikbare vakken; groeit met rugzak, rig en zakken (zie Equipment).</summary>
+        public int Capacity;
 
-        public Inventory(int size = 30) { Slots = new Stack[size]; }
+        public Inventory(int size = MaxSlots) { Slots = new Stack[size]; Capacity = size; }
 
         public float Weight
         {
@@ -96,13 +161,14 @@ namespace Deadhaul.Core
         {
             var def = Items.Get(id);
             if (def == null) return count;
-            for (int i = 0; i < Slots.Length && count > 0; i++)
+            int cap = Math.Min(Capacity, Slots.Length);
+            for (int i = 0; i < cap && count > 0; i++)
                 if (Slots[i].Id == id && Slots[i].Count < def.MaxStack)
                 {
                     int take = Math.Min(count, def.MaxStack - Slots[i].Count);
                     Slots[i].Count += take; count -= take;
                 }
-            for (int i = 0; i < Slots.Length && count > 0; i++)
+            for (int i = 0; i < cap && count > 0; i++)
                 if (Slots[i].Empty)
                 {
                     int take = Math.Min(count, def.MaxStack);
@@ -110,6 +176,18 @@ namespace Deadhaul.Core
                 }
             return count;
         }
+
+        /// <summary>Legt een hele stapel (met wapenstatus) in het eerste vrije vak. Geeft false als er geen plek is.</summary>
+        public bool AddStack(Stack s)
+        {
+            if (s.Empty) return true;
+            if (s.Def.MaxStack > 1 && s.Mods == null && s.Ammo == 0) return Add(s.Id, s.Count) == 0;
+            int cap = Math.Min(Capacity, Slots.Length);
+            for (int i = 0; i < cap; i++) if (Slots[i].Empty) { Slots[i] = s; return true; }
+            return false;
+        }
+
+        public int FreeSlots { get { int n = 0, cap = Math.Min(Capacity, Slots.Length); for (int i = 0; i < cap; i++) if (Slots[i].Empty) n++; return n; } }
 
         public bool Remove(string id, int count)
         {
@@ -135,7 +213,7 @@ namespace Deadhaul.Core
         public void Write(BinaryWriter w)
         {
             w.Write(Slots.Length);
-            foreach (var s in Slots) { w.Write(s.Id ?? ""); w.Write(s.Count); }
+            foreach (var s in Slots) s.Write(w);
         }
 
         public void Read(BinaryReader r)
@@ -143,8 +221,8 @@ namespace Deadhaul.Core
             int n = r.ReadInt32();
             for (int i = 0; i < n; i++)
             {
-                string id = r.ReadString(); int c = r.ReadInt32();
-                if (i < Slots.Length) Slots[i] = string.IsNullOrEmpty(id) || Items.Get(id) == null ? Stack.None : new Stack(id, c);
+                var s = Stack.Read(r);
+                if (i < Slots.Length) Slots[i] = s;
             }
         }
     }
@@ -161,6 +239,9 @@ namespace Deadhaul.Core
         public static readonly Recipe[] All =
         {
             new Recipe { Result = "verband", Count = 1, Needs = new[] { ("stof", 2) } },
+            new Recipe { Result = "gebakken_vlees", Count = 1, Needs = new[] { ("vlees", 1) }, NeedsFire = true },
+            new Recipe { Result = "winterjas", Count = 1, Needs = new[] { ("vacht", 3), ("stof", 4) } },
+            new Recipe { Result = "schoudertas", Count = 1, Needs = new[] { ("stof", 6), ("vacht", 1) } },
             new Recipe { Result = "kampvuur", Count = 1, Needs = new[] { ("hout", 4), ("steen", 3) } },
             new Recipe { Result = "bijl", Count = 1, Needs = new[] { ("hout", 2), ("schroot", 3) } },
             new Recipe { Result = "breekijzer", Count = 1, Needs = new[] { ("schroot", 5) } },
@@ -187,20 +268,34 @@ namespace Deadhaul.Core
     public static class Loot
     {
         static readonly (string id, int min, int max, float w)[] Huis =
-            { ("bonen", 1, 2, 3), ("chips", 1, 2, 2), ("water", 1, 1, 3), ("frisdrank", 1, 2, 2), ("stof", 1, 3, 3), ("verband", 1, 1, 1.5f), ("batterij", 1, 2, 1.5f), ("hout", 2, 5, 1), ("9mm", 3, 8, 0.6f), ("pijp", 1, 1, 0.4f), ("bijl", 1, 1, 0.3f) };
+            { ("bonen", 1, 2, 3), ("chips", 1, 2, 2), ("water", 1, 1, 3), ("frisdrank", 1, 2, 2), ("stof", 1, 3, 3), ("verband", 1, 1, 1.5f), ("batterij", 1, 2, 1.5f),
+              ("hout", 2, 5, 1), ("9mm", 4, 12, 0.6f), ("pijp", 1, 1, 0.4f), ("bijl", 1, 1, 0.3f), ("pistool", 1, 1, 0.15f), ("shotgun", 1, 1, 0.08f), ("12g", 3, 8, 0.4f),
+              ("hoodie", 1, 1, 0.6f), ("jeans", 1, 1, 0.4f), ("joggingbroek", 1, 1, 0.4f), ("tshirt", 1, 1, 0.5f), ("sneakers", 1, 1, 0.5f), ("schoenen", 1, 1, 0.3f),
+              ("muts", 1, 1, 0.4f), ("pet", 1, 1, 0.3f), ("winterjas", 1, 1, 0.2f), ("schoudertas", 1, 1, 0.3f), ("rugzak", 1, 1, 0.15f), ("bandana", 1, 1, 0.3f) };
         static readonly (string id, int min, int max, float w)[] Winkel =
-            { ("bonen", 1, 3, 4), ("chips", 1, 3, 4), ("water", 1, 2, 4), ("frisdrank", 1, 3, 3), ("batterij", 1, 3, 2), ("stof", 1, 2, 1) };
+            { ("bonen", 1, 3, 4), ("chips", 1, 3, 4), ("water", 1, 2, 4), ("frisdrank", 1, 3, 3), ("batterij", 1, 3, 2), ("stof", 1, 2, 1),
+              ("cargobroek", 1, 1, 0.6f), ("wandelschoenen", 1, 1, 0.5f), ("sneakers", 1, 1, 0.6f), ("rugzak", 1, 1, 0.5f), ("hoodie", 1, 1, 0.6f), ("winterjas", 1, 1, 0.4f),
+              ("jas", 1, 1, 0.4f), ("schoudertas", 1, 1, 0.5f) };
         static readonly (string id, int min, int max, float w)[] Apotheek =
-            { ("verband", 1, 3, 4), ("medkit", 1, 1, 1.5f), ("antibiotica", 1, 2, 2), ("water", 1, 1, 1), ("stof", 1, 3, 1) };
+            { ("verband", 1, 3, 4), ("medkit", 1, 1, 1.5f), ("antibiotica", 1, 2, 2), ("water", 1, 1, 1), ("stof", 1, 3, 1), ("gasmasker", 1, 1, 0.2f) };
         static readonly (string id, int min, int max, float w)[] Politie =
-            { ("9mm", 6, 18, 4), ("308", 3, 8, 2), ("pistool", 1, 1, 1.2f), ("geweer", 1, 1, 0.5f), ("kruit", 2, 6, 2), ("verband", 1, 2, 1.5f), ("breekijzer", 1, 1, 0.8f) };
+            { ("9mm", 8, 24, 4), ("556", 10, 30, 2), ("12g", 4, 10, 2), ("pistool", 1, 1, 1.4f), ("mp5", 1, 1, 0.7f), ("m4", 1, 1, 0.35f), ("shotgun", 1, 1, 0.8f),
+              ("kruit", 2, 6, 1.5f), ("verband", 1, 2, 1.5f), ("breekijzer", 1, 1, 0.6f), ("politievest", 1, 1, 0.6f), ("helm", 1, 1, 0.3f),
+              ("demper_9mm", 1, 1, 0.35f), ("reddot", 1, 1, 0.5f), ("holo", 1, 1, 0.35f), ("wapenlamp", 1, 1, 0.5f), ("laser", 1, 1, 0.4f),
+              ("grip_vert", 1, 1, 0.4f), ("sling", 1, 1, 0.5f), ("mag_pistool", 1, 1, 0.4f), ("legerkistjes", 1, 1, 0.3f), ("chestrig", 1, 1, 0.3f) };
         static readonly (string id, int min, int max, float w)[] Industrie =
-            { ("schroot", 2, 6, 4), ("kruit", 1, 4, 2), ("rubber", 1, 3, 2), ("batterij", 1, 2, 1.5f), ("breekijzer", 1, 1, 0.6f), ("bijl", 1, 1, 0.5f), ("water", 1, 1, 1) };
+            { ("schroot", 2, 6, 4), ("kruit", 1, 4, 2), ("rubber", 1, 3, 2), ("batterij", 1, 2, 1.5f), ("breekijzer", 1, 1, 0.6f), ("bijl", 1, 1, 0.5f), ("water", 1, 1, 1),
+              ("bouwhelm", 1, 1, 0.5f), ("hazmatpak", 1, 1, 0.25f), ("gasmasker", 1, 1, 0.3f), ("wandelschoenen", 1, 1, 0.4f), ("cargobroek", 1, 1, 0.4f) };
+        public static readonly (string id, int min, int max, float w)[] Militair =
+            { ("556", 20, 60, 4), ("762", 20, 60, 3), ("308", 5, 15, 1.5f), ("9mm", 15, 40, 2), ("m4", 1, 1, 1f), ("ak", 1, 1, 1f), ("mp5", 1, 1, 0.6f), ("geweer", 1, 1, 0.5f),
+              ("platecarrier", 1, 1, 0.6f), ("helm", 1, 1, 0.8f), ("chestrig", 1, 1, 1f), ("legerrugzak", 1, 1, 0.6f), ("legerjas", 1, 1, 1f), ("legerbroek", 1, 1, 1f),
+              ("legerkistjes", 1, 1, 1f), ("gasmasker", 1, 1, 0.6f), ("demper_geweer", 1, 1, 0.4f), ("compensator", 1, 1, 0.6f), ("scope4x", 1, 1, 0.5f),
+              ("scope8x", 1, 1, 0.2f), ("holo", 1, 1, 0.6f), ("grip_hoek", 1, 1, 0.5f), ("grip_vert", 1, 1, 0.5f), ("mag_groot", 1, 1, 0.5f), ("medkit", 1, 1, 1f) };
 
         /// <summary>Deterministische inhoud van een container op deze plek.</summary>
-        public static List<Stack> Roll(LotType? type, byte container, int x, int y, int z, int seed)
+        public static List<Stack> Roll(LotType? type, byte container, int x, int y, int z, int seed, bool military = false)
         {
-            var table = container == B.Barrel ? Industrie : type switch
+            var table = military ? Militair : container == B.Barrel ? Industrie : type switch
             {
                 LotType.Winkel => Winkel,
                 LotType.Apotheek => Apotheek,
@@ -210,7 +305,12 @@ namespace Deadhaul.Core
                 _ => Huis,
             };
             var rng = new Random((int)(Hash.H3(x, y, z, seed ^ 0x100f) * int.MaxValue));
-            int rolls = 1 + rng.Next(container == B.Shelf ? 2 : 3);
+            int rolls = 1 + rng.Next(container == B.Shelf ? 2 : 3) + (military ? 2 : 0);
+            return RollTable(table, rolls, rng);
+        }
+
+        public static List<Stack> RollTable((string id, int min, int max, float w)[] table, int rolls, Random rng)
+        {
             float total = 0; foreach (var t in table) total += t.w;
             var result = new List<Stack>();
             for (int i = 0; i < rolls; i++)
@@ -221,6 +321,12 @@ namespace Deadhaul.Core
                     pick -= t.w;
                     if (pick > 0) continue;
                     int n = rng.Next(t.min, t.max + 1);
+                    var def = Items.Get(t.id);
+                    if (def.MaxStack == 1)
+                    {
+                        for (int k = 0; k < n; k++) result.Add(MakeItem(t.id, rng));
+                        break;
+                    }
                     int existing = result.FindIndex(s => s.Id == t.id);
                     if (existing >= 0) { var s = result[existing]; s.Count += n; result[existing] = s; }
                     else result.Add(new Stack(t.id, n));
@@ -229,12 +335,31 @@ namespace Deadhaul.Core
             }
             return result;
         }
+
+        /// <summary>Een los voorwerp; wapens komen met een deels gevuld magazijn en soms een attachment.</summary>
+        public static Stack MakeItem(string id, Random rng)
+        {
+            var s = new Stack(id, 1);
+            var d = s.Def;
+            if (d.Kind == ItemKind.Weapon && d.GunDamage > 0)
+            {
+                s.Ammo = rng.Next(0, d.MagSize + 1);
+                if (rng.NextDouble() < 0.3)
+                {
+                    var options = new List<ItemDef>();
+                    foreach (var a in Items.All.Values) if (Arsenal.Fits(d, a)) options.Add(a);
+                    if (options.Count > 0) { var a = options[rng.Next(options.Count)]; s.SetMod(a.AttachSlot, a.Id); }
+                }
+            }
+            return s;
+        }
     }
 
     /// <summary>De lichaamstoestand van de overlever.</summary>
     public sealed class Survival
     {
-        public float Health = 100, Food = 85, Water = 85, Stamina = 100, Warmth = 100;
+        static readonly Random rng = new Random();
+        public float Health = 100, Food = 85, Water = 85, Stamina = 100, Warmth = 100, Radiation;
         public bool Bleeding, Sick;
         public bool Dead => Health <= 0;
 
@@ -244,14 +369,17 @@ namespace Deadhaul.Core
 
         /// <summary>
         /// ambient: omgevingstemperatuur 0 (ijskoud) .. 1 (warm). exertion: 0 rust, 1 lopen, 2 sprinten.
+        /// clothing: warmte van kleding 0..1. radDose: straling per seconde na bescherming.
         /// </summary>
-        public void Tick(float dt, float ambient, float exertion, bool inWater, bool nearFire)
+        public void Tick(float dt, float ambient, float exertion, bool inWater, bool nearFire, float clothing = 0, float radDose = 0)
         {
             if (Dead) return;
             Food = Math.Max(0, Food - FoodDrain * dt * (1 + exertion * 0.35f));
             Water = Math.Max(0, Water - WaterDrain * dt * (1 + exertion * 0.5f));
 
-            float target = nearFire ? 1f : Math.Clamp(ambient - (inWater ? 0.45f : 0), 0, 1);
+            float target = nearFire ? 1f : Math.Clamp(ambient + clothing * 0.45f - (inWater ? 0.45f : 0), 0, 1);
+            if (radDose > 0) Radiation = Math.Min(100, Radiation + radDose * dt);
+            else Radiation = Math.Max(0, Radiation - 0.05f * dt);
             float warmthGoal = target * 100;
             Warmth += (warmthGoal - Warmth) * Math.Min(1, dt * (nearFire ? 0.2f : 0.025f));
 
@@ -264,6 +392,7 @@ namespace Deadhaul.Core
             if (Warmth < 20) dmg += (20 - Warmth) * 0.03f;
             if (Bleeding) dmg += 0.9f;
             if (Sick) { dmg += 0.25f; Water = Math.Max(0, Water - 0.05f * dt); }
+            if (Radiation > 40) dmg += (Radiation - 40) * 0.02f;
             Health -= dmg * dt;
             if (dmg == 0 && Food > 50 && Water > 50 && Warmth > 40) Health = Math.Min(100, Health + 0.35f * dt);
             if (Health < 0) Health = 0;
@@ -278,11 +407,13 @@ namespace Deadhaul.Core
                 case ItemKind.Drink:
                     Food = Math.Clamp(Food + d.Food, 0, 100);
                     Water = Math.Clamp(Water + d.Water, 0, 100);
+                    if (d.SickChance > 0 && rng.NextDouble() < d.SickChance) { Sick = true; return $"Je eet: {d.Name}. Je maag protesteert…"; }
                     return d.Kind == ItemKind.Food ? $"Je eet: {d.Name}." : $"Je drinkt: {d.Name}.";
                 case ItemKind.Medical:
                     Health = Math.Min(100, Health + d.Heal);
                     if (d.StopsBleeding) Bleeding = false;
                     if (d.CuresSickness) Sick = false;
+                    if (d.Id == "jodium") Radiation = Math.Max(0, Radiation - 45);
                     return $"Gebruikt: {d.Name}.";
             }
             return null;
@@ -296,13 +427,13 @@ namespace Deadhaul.Core
 
         public void Write(BinaryWriter w)
         {
-            w.Write(Health); w.Write(Food); w.Write(Water); w.Write(Stamina); w.Write(Warmth); w.Write(Bleeding); w.Write(Sick);
+            w.Write(Health); w.Write(Food); w.Write(Water); w.Write(Stamina); w.Write(Warmth); w.Write(Bleeding); w.Write(Sick); w.Write(Radiation);
         }
 
         public void Read(BinaryReader r)
         {
             Health = r.ReadSingle(); Food = r.ReadSingle(); Water = r.ReadSingle(); Stamina = r.ReadSingle();
-            Warmth = r.ReadSingle(); Bleeding = r.ReadBoolean(); Sick = r.ReadBoolean();
+            Warmth = r.ReadSingle(); Bleeding = r.ReadBoolean(); Sick = r.ReadBoolean(); Radiation = r.ReadSingle();
         }
     }
 

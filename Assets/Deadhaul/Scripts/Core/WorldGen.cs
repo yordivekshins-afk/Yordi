@@ -24,9 +24,13 @@ namespace Deadhaul.Core
         public int RoadH;
         public City City;
         public float CityD;
+        public float Rad;           // straling 0..1 (kraters)
+        public float CraterD;       // afstand tot het kratercentrum / straal (0 = midden, 1 = rand)
     }
 
-    public enum LotType { Park, Parkeerplaats, Ruine, Benzinestation, Apotheek, Politie, Winkel, Flat, Huis }
+    public sealed class Crater { public int X, Z; public float R; }
+
+    public enum LotType { Park, Parkeerplaats, Ruine, Benzinestation, Apotheek, Politie, Winkel, Flat, Huis, Militair }
 
     public sealed class Lot
     {
@@ -129,6 +133,37 @@ namespace Deadhaul.Core
             return c;
         }
 
+        // ------------------------------------------------------------ kraters
+        public const int CraterCell = CityCell * 3;
+        readonly ConcurrentDictionary<long, Crater> craters = new ConcurrentDictionary<long, Crater>();
+        static readonly Crater NoCrater = new Crater();
+
+        public Crater GetCrater(int i, int j)
+        {
+            long key = ((long)i << 32) ^ (uint)j;
+            var c = craters.GetOrAdd(key, _ =>
+            {
+                if (i == 0 && j == 0) return NoCrater;                 // de startregio blijft gespaard
+                if (Hash.H2(i, j, Seed ^ 0xb0b) > 0.55f) return NoCrater;
+                int x = i * CraterCell + 600 + (int)(Hash.H2(i, j, Seed ^ 0xb1) * (CraterCell - 1200));
+                int z = j * CraterCell + 600 + (int)(Hash.H2(j, i, Seed ^ 0xb2) * (CraterCell - 1200));
+                return new Crater { X = x, Z = z, R = 90 + Hash.H2(i, j, Seed ^ 0xb3) * 110 };
+            });
+            return ReferenceEquals(c, NoCrater) ? null : c;
+        }
+
+        /// <summary>Straling op deze plek (0..1) en de relatieve afstand tot het dichtstbijzijnde kratercentrum.</summary>
+        public float RadiationAt(int x, int z, out float rel)
+        {
+            rel = 99;
+            var c = GetCrater(FloorDiv(x, CraterCell), FloorDiv(z, CraterCell));
+            if (c == null) return 0;
+            float d = MathF.Sqrt((float)(x - c.X) * (x - c.X) + (float)(z - c.Z) * (z - c.Z));
+            rel = d / c.R;
+            float t = 1 - d / (c.R * 1.9f);
+            return t <= 0 ? 0 : MathF.Pow(t, 1.4f);
+        }
+
         /// <summary>Afstand tot de dichtstbijzijnde snelweglijn.</summary>
         public int RoadAt(int x, int z, out bool ns, out int line)
         {
@@ -176,6 +211,17 @@ namespace Deadhaul.Core
                 else col.Kind = ColumnKind.Lot;
                 h = city.Base;
             }
+            float rad = RadiationAt(x, z, out float rel);
+            col.Rad = rad; col.CraterD = rel;
+            if (rel < 1.5f && col.Kind != ColumnKind.Highway && col.Kind != ColumnKind.Bridge)
+            {
+                var cr = GetCrater(FloorDiv(x, CraterCell), FloorDiv(z, CraterCell));
+                float depth = cr.R * 0.1f;
+                if (rel < 1f) h -= depth * (1 - rel * rel);
+                float rim = 1 - MathF.Abs(rel - 1.08f) / 0.3f;
+                if (rim > 0) h += rim * rim * 5f;
+                h += n4.Noise2(x / 6f, z / 6f) * 1.2f * Math.Max(0, 1.2f - rel);
+            }
             col.H = (int)MathF.Round(h);
             return col;
         }
@@ -198,6 +244,7 @@ namespace Deadhaul.Core
             else if (r < 0.25f) type = LotType.Benzinestation;
             else if (r < 0.31f) type = LotType.Apotheek;
             else if (r < 0.36f) type = LotType.Politie;
+            else if (r < 0.39f && (c.Kind == "capital" || c.Kind == "stad")) type = LotType.Militair;
             else if (r < 0.52f) type = LotType.Winkel;
             else if (r < 0.52f + 0.35f * centre + (c.Kind == "capital" ? 0.12f : 0)) type = LotType.Flat;
             else type = LotType.Huis;
@@ -232,6 +279,8 @@ namespace Deadhaul.Core
             s.Bx = x0 + ((36 - s.W) >> 1); s.Bz = z0 + ((36 - s.D) >> 1);
             if (type == LotType.Benzinestation) { s.Bx = x0 + 20; s.Bz = z0 + 22; }
             s.Damage = MathF.Pow(Hash.H2(kx * 13, kz * 17, Seed ^ 0xda), 1.6f);
+            float lotRad = RadiationAt(x0 + 18, z0 + 18, out _);
+            if (lotRad > 0) s.Damage = Math.Min(1f, Math.Max(s.Damage, lotRad * 1.4f));
             s.Front = (int)(Hash.H2(kx, kz * 3, Seed ^ 0xf0) * 4);
             return s;
         }
@@ -364,13 +413,19 @@ namespace Deadhaul.Core
                             break;
                         }
                         case ColumnKind.Sidewalk: top = B.Sidewalk; break;
-                        case ColumnKind.Lot: top = m < -0.2f ? B.DeadGrass : B.Grass; break;
+                        case ColumnKind.Lot: top = c.Rad > 0.3f ? B.Ash : m < -0.2f ? B.DeadGrass : B.Grass; break;
                         case ColumnKind.Bridge: top = B.Stone; break;
                         default:
                             if (h <= World.Sea + 1) top = h < World.Sea - 2 ? B.Gravel : B.Sand;
                             else if (slope > 4 || h > World.Sea + 44) top = B.Stone;
                             else if (m < -0.22f) top = Hash.H2(x, z, Seed ^ 3) < 0.08f ? B.Gravel : B.DeadGrass;
                             else top = Hash.H2(x, z, Seed ^ 4) < 0.02f ? B.Moss : B.Grass;
+                            if (c.Rad > 0.12f && h > World.Sea + 1)
+                            {
+                                float n = Hash.H2(x, z, Seed ^ 0xa51);
+                                if (c.Rad > 0.55f) top = n < 0.5f ? B.Scorched : B.Ash;
+                                else if (n < c.Rad * 1.6f) top = n < c.Rad ? B.Ash : B.DeadGrass;
+                            }
                             break;
                     }
                     int b = World.IdxPad(px, 0, pz);
@@ -439,18 +494,33 @@ namespace Deadhaul.Core
                     bool allowed = c.Kind == ColumnKind.Nature;
                     if (c.Kind == ColumnKind.Lot) { var s = LotAtVoxel(x, z); allowed = s != null && s.Type == LotType.Park; }
                     if (!allowed || c.H <= World.Sea + 1 || c.H > World.Sea + 46) continue;
+                    if (c.Rad > 0.6f) continue;
                     if (c.Kind == ColumnKind.Nature && c.RoadD <= HW + 3) continue;
-                    int kind = m < -0.22f ? 0 : (c.H > World.Sea + 26 || Hash.H2(tx, tz, Seed ^ 5) < 0.3f) ? 1 : 2;
+                    int kind = m < -0.22f || c.Rad > 0.12f ? 0 : (c.H > World.Sea + 26 || Hash.H2(tx, tz, Seed ^ 5) < 0.3f) ? 1 : 2;
                     WriteTree(kind, x, c.H + 1, z, Hash.H2(tz, tx, Seed ^ 6), ref o);
                 }
 
-            // 6. planten en losse stenen
+            // 6. stralingskristallen in kraters
+            for (int pz = 0; pz < P; pz++)
+                for (int px = 0; px < P; px++)
+                {
+                    var c = cols[px + pz * P];
+                    if (c.CraterD > 0.95f) continue;
+                    int x = o.Ox + px, z = o.Oz + pz;
+                    if (Hash.H2(x, z, Seed ^ 0xc75) > 0.006f) continue;
+                    int hh = 1 + (int)(Hash.H2(z, x, Seed ^ 0xc76) * 4);
+                    int top = Math.Max(c.H, World.Sea);
+                    for (int y = 1; y <= hh; y++) o.Set(x, top + y, z, B.RadCrystal);
+                    if (hh > 2) { o.Set(x + 1, top + 1, z, B.RadCrystal); o.Set(x, top + 1, z - 1, B.RadCrystal); }
+                }
+
+            // 7. planten en losse stenen
             for (int pz = 0; pz < P; pz++)
                 for (int px = 0; px < P; px++)
                 {
                     int x = o.Ox + px, z = o.Oz + pz;
                     var c = cols[px + pz * P];
-                    if (c.Kind != ColumnKind.Nature || c.H <= World.Sea + 1 || c.H >= World.Height - 2) continue;
+                    if (c.Kind != ColumnKind.Nature || c.H <= World.Sea + 1 || c.H >= World.Height - 2 || c.Rad > 0.3f) continue;
                     int i = World.IdxPad(px, c.H, pz);
                     var a = o.Data;
                     if ((a[i] == B.Grass || a[i] == B.DeadGrass) && a[i + 1] == B.Air && Hash.H2(x, z, Seed ^ 0xc0) < 0.004f) a[i + 1] = B.Crop;
@@ -531,6 +601,48 @@ namespace Deadhaul.Core
                             }
                         }
                     o.Set(s.X0 + 18, bse + 1, s.Z0 + 30, B.Crate);
+                    return;
+                case LotType.Militair:
+                    for (int z = z0; z <= z1; z++)
+                        for (int x = x0; x <= x1; x++)
+                        {
+                            int lx = x - s.X0, lz = z - s.Z0;
+                            if (lx < 0 || lz < 0 || lx >= 36 || lz >= 36) continue;
+                            o.Set(x, bse, z, (lx + lz) % 9 == 0 ? B.Gravel : B.Concrete);
+                            bool ring = lx == 1 || lz == 1 || lx == 34 || lz == 34;
+                            bool gate = (lz == 1 || lz == 34) && lx >= 15 && lx <= 20;
+                            if (ring && !gate)
+                            {
+                                o.Set(x, bse + 1, z, B.Sandbag); o.Set(x, bse + 2, z, B.Sandbag);
+                                if ((lx + lz) % 2 == 0 && Hash.H2(x, z, Seed) > s.Damage * 0.6f) o.Set(x, bse + 3, z, B.Sandbag);
+                            }
+                            if ((lx == 0 || lz == 0 || lx == 35 || lz == 35) && !gate) { o.Set(x, bse + 1, z, B.Fence); o.Set(x, bse + 2, z, B.Fence); o.Set(x, bse + 3, z, B.Fence); }
+                            // twee legertenten
+                            for (int t = 0; t < 2; t++)
+                            {
+                                int tx0 = 5 + t * 15, tz0 = 6;
+                                if (lx >= tx0 && lx < tx0 + 10 && lz >= tz0 && lz < tz0 + 12)
+                                {
+                                    int ex = lx - tx0, ez = lz - tz0;
+                                    int roofH = 4 - Math.Abs(ex - 4) / 2;
+                                    bool wall = ez == 0 || ez == 11;
+                                    for (int y = 1; y <= roofH; y++)
+                                        if (y == roofH || ((ex == 0 || ex == 9) && y <= 2) || (wall && !(ez == 11 && ex >= 3 && ex <= 6 && y <= 3))) o.Set(x, bse + y, z, B.OD);
+                                    if (ez == 2 && (ex == 2 || ex == 7) && Hash.H2(x, z, Seed ^ 0xac) < 0.8f) o.Set(x, bse + 1, z, B.AmmoCrate);
+                                }
+                            }
+                            // wachttoren
+                            if (lx >= 28 && lx <= 31 && lz >= 26 && lz <= 29)
+                            {
+                                bool corner = (lx == 28 || lx == 31) && (lz == 26 || lz == 29);
+                                if (corner) for (int y = 1; y <= 9; y++) o.Set(x, bse + y, z, B.Log);
+                                o.Set(x, bse + 10, z, B.Planks);
+                                if (lx == 28 || lx == 31 || lz == 26 || lz == 29) o.Set(x, bse + 11, z, B.Sandbag);
+                                if (lx == 30 && lz == 27) o.Set(x, bse + 11, z, B.AmmoCrate);
+                            }
+                            if (lx == 29 && lz >= 16 && lz <= 25) o.Set(x, bse + 1 + (lz - 16), z, B.Planks);   // trap naar de toren
+                        }
+                    Car(s.X0 + 6, bse + 1, s.Z0 + 22, false, 0.45f, ref o);
                     return;
                 case LotType.Benzinestation:
                     for (int z = z0; z <= z1; z++)
