@@ -23,7 +23,7 @@ namespace UnityEngine
         public Vector3 position, localPosition, localScale, forward, right, up; public Quaternion rotation, localRotation;
         public void SetParent(Transform p, bool w) { } public int childCount; public Transform GetChild(int i) => null;
     }
-    public struct Vector2 { public float x, y; public Vector2(float a, float b) { x = a; y = b; } public static Vector2 zero; public float magnitude => 0;
+    public struct Vector2 { public float x, y; public Vector2(float a, float b) { x = a; y = b; } public static Vector2 zero; public float magnitude => 0; public float sqrMagnitude => 0;
         public static Vector2 ClampMagnitude(Vector2 v, float m) => v; public static Vector2 operator *(Vector2 a, float s) => a; }
     public struct Vector2Int : IEquatable<Vector2Int> { public Vector2Int(int a, int b) { } public bool Equals(Vector2Int o) => true; public static bool operator ==(Vector2Int a, Vector2Int b) => true; public static bool operator !=(Vector2Int a, Vector2Int b) => false; public override bool Equals(object o) => true; public override int GetHashCode() => 0; }
     public struct Vector3
@@ -44,7 +44,7 @@ namespace UnityEngine
     public static class Mathf
     {
         public const float Deg2Rad = 0.017f, PI = 3.14f;
-        public static float Min(float a, float b) => a; public static float Max(float a, float b) => a; public static int Max(int a, int b) => a;
+        public static float Min(float a, float b) => a; public static float LerpAngle(float a, float b, float t) => a; public static float Max(float a, float b) => a; public static int Max(int a, int b) => a;
         public static float Clamp(float v, float a, float b) => v; public static float Clamp01(float v) => v; public static float Lerp(float a, float b, float t) => a;
         public static float InverseLerp(float a, float b, float t) => a; public static float Sin(float f) => f; public static float Cos(float f) => f; public static float Abs(float f) => f; public static int Abs(int f) => f;
         public static float Exp(float f) => f; public static float Repeat(float t, float l) => t; public static int RoundToInt(float f) => 0; public static int FloorToInt(float f) => 0;
@@ -116,7 +116,7 @@ namespace UnityEngine
     public sealed class AudioSource : Behaviour
     {
         public float spatialBlend, minDistance, maxDistance, dopplerLevel, volume, pitch; public AudioRolloffMode rolloffMode; public AudioClip clip; public bool loop;
-        public void Play() { } public void PlayOneShot(AudioClip c) { } public void PlayOneShot(AudioClip c, float v) { }
+        public void Play() { } public void Stop() { } public bool isPlaying; public void PlayOneShot(AudioClip c) { } public void PlayOneShot(AudioClip c, float v) { }
     }
     public static class Random { public static Quaternion rotation; public static Vector3 insideUnitSphere; public static float Range(float a, float b) => a; public static int Range(int a, int b) => a; }
     public struct RenderParams { public RenderParams(Material m) { material = m; shadowCastingMode = default; receiveShadows = true; } public Material material; public UnityEngine.Rendering.ShadowCastingMode shadowCastingMode; public bool receiveShadows; }
@@ -207,7 +207,7 @@ namespace UnityEngine.InputSystem
     public class Keyboard
     {
         public static Keyboard current; public Controls.KeyControl this[Key k] => null;
-        public Controls.KeyControl rKey, bKey, wKey, aKey, sKey, dKey, cKey, eKey, qKey, fKey, vKey, hKey, iKey, tabKey, spaceKey, escapeKey, leftShiftKey, leftCtrlKey, f5Key;
+        public Controls.KeyControl lKey, rKey, bKey, wKey, aKey, sKey, dKey, cKey, eKey, qKey, fKey, vKey, hKey, iKey, tabKey, spaceKey, escapeKey, leftShiftKey, leftCtrlKey, f5Key;
     }
     public class Mouse { public static Mouse current; public Controls.Vector2Control delta, scroll; public Controls.ButtonControl leftButton, rightButton; }
 }

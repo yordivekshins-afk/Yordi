@@ -29,7 +29,11 @@ namespace Deadhaul
 
         public bool LootOpen => loot != null;
         public bool TradeOpen => trade != null;
-        public bool CapturesInput => InventoryOpen || LootOpen || TradeOpen || Paused || game.Stats.Dead || !game.Ready;
+        public bool VehicleOpen => vehicle != null;
+        public bool CapturesInput => InventoryOpen || LootOpen || TradeOpen || VehicleOpen || Paused || game.Stats.Dead || !game.Ready;
+        Vehicle vehicle;
+
+        public void OpenVehicle(Vehicle v) { vehicle = v; InventoryOpen = false; loot = null; trade = null; }
         Settlement trade; string tradeName;
         Vector2 tradeScrollA, tradeScrollB;
 
@@ -63,11 +67,12 @@ namespace Deadhaul
             {
                 if (LootOpen) loot = null;
                 else if (TradeOpen) trade = null;
+                else if (VehicleOpen) vehicle = null;
                 else if (InventoryOpen) InventoryOpen = false;
                 else if (!game.Stats.Dead) Paused = !Paused;
             }
             if (kb.tabKey.wasPressedThisFrame || kb.iKey.wasPressedThisFrame) { if (!Paused && !game.Stats.Dead) { InventoryOpen = !InventoryOpen; loot = null; dragSlot = -1; modSlot = -1; } }
-            if (kb.hKey.wasPressedThisFrame) ShowHelp = !ShowHelp;
+            if (kb.hKey.wasPressedThisFrame && game.Player.Vehicle == null) ShowHelp = !ShowHelp;
             if (kb.f5Key.wasPressedThisFrame) game.Save();
         }
 
@@ -144,6 +149,9 @@ namespace Deadhaul
             if (InventoryOpen) InventoryWindow(W, H);
             if (LootOpen) LootWindow(W, H);
             if (TradeOpen) TradeWindow(W, H);
+            if (VehicleOpen) VehicleWindow(W, H);
+            if (game.Player.Vehicle != null) DrivingHud(W, H);
+            else if (!CapturesInput) Prompts(W, H);
             if (Paused) PauseMenu(W, H);
 
             // pijn en kou aan de randen van het scherm
@@ -336,7 +344,7 @@ namespace Deadhaul
 
         void Help()
         {
-            var r = new Rect(22, 60, 400, 212);
+            var r = new Rect(22, 60, 440, 232);
             Frame(r);
             GUI.Label(new Rect(r.x + 12, r.y + 8, r.width, 24), "Besturing", title);
             GUI.Label(new Rect(r.x + 12, r.y + 38, r.width - 20, r.height - 40),
@@ -345,7 +353,8 @@ namespace Deadhaul
                 "R herladen · B vuurmodus · E doorzoeken (ook lijken)\n" +
                 "Q eten/gebruiken/aantrekken · 1–6 of scrollen: snelbalk\n" +
                 "Tab rugzak, uitrusting, wapenbank en crafting\n" +
-                "F zaklamp · V first-person · F5 opslaan · Esc menu · H hulp", small);
+                "F zaklamp · V first-person · F5 opslaan · Esc menu · H hulp\n" +
+                "E bij een voertuig: repareren, tanken, instappen · hengel: klik op water", small);
         }
 
         static readonly string[] SlotNames = { "Hoofd", "Gezicht", "Romp", "Vest", "Rug", "Benen", "Voeten" };
@@ -608,6 +617,91 @@ namespace Deadhaul
             }
             GUI.EndScrollView();
             if (GUI.Button(new Rect(r.xMax - 130, r.yMax - 46, 110, 32), "Sluiten", button)) trade = null;
+        }
+
+        void VehicleWindow(float W, float H)
+        {
+            var v = vehicle;
+            var inv = game.Inventory;
+            var r = new Rect(W / 2 - 300, H / 2 - 230, 600, 460);
+            Frame(r);
+            GUI.Label(new Rect(r.x + 18, r.y + 12, 560, 30), v.Def.Name + (v.Health <= 0 ? " (total loss)" : ""), title);
+            GUI.Label(new Rect(r.x + 18, r.y + 46, 560, 22), $"Staat {v.Health:0}%" + (v.Def.NeedsFuel ? $"   ·   Benzine {v.Fuel:0.0} / {v.Def.FuelCapacity:0} l" : ""), label);
+            float y = r.y + 84;
+            if (v.Def.Parts.Length == 0) { GUI.Label(new Rect(r.x + 18, y, 560, 22), "Heeft geen onderdelen nodig.", small); y += 30; }
+            foreach (var part in v.Def.Parts)
+            {
+                string item = Vehicles.PartItem(part);
+                int need = Vehicles.PartCount(part);
+                bool ok = v.PartOk[(int)part];
+                Fill(new Rect(r.x + 18, y, 564, 34), new Color(0.1f, 0.1f, 0.08f, 0.8f));
+                GUI.Label(new Rect(r.x + 28, y + 6, 220, 22), part.ToString(), label);
+                GUI.Label(new Rect(r.x + 200, y + 6, 220, 22), ok ? "<color=#8fd06a>in orde</color>" : $"<color=#e0503c>ontbreekt</color>  ({need}× {Items.Get(item).Name.ToLowerInvariant()}, je hebt {inv.Count(item)})", label);
+                if (!ok)
+                {
+                    GUI.enabled = inv.Count(item) >= need && v.Health > 0;
+                    if (GUI.Button(new Rect(r.xMax - 118, y + 4, 96, 26), "Monteer", button))
+                    {
+                        inv.Remove(item, need);
+                        v.PartOk[(int)part] = true;
+                        game.Vehicles.Refresh(v);
+                        Sfx.Instance.Play2D("herladen", 0.7f, 0.8f);
+                        Message($"{part} gemonteerd.");
+                    }
+                    GUI.enabled = true;
+                }
+                y += 40;
+            }
+            if (v.Def.NeedsFuel)
+            {
+                GUI.enabled = inv.Count("jerrycan") > 0 && v.Fuel < v.Def.FuelCapacity - 1;
+                if (GUI.Button(new Rect(r.x + 18, y + 6, 240, 32), "Tanken met jerrycan (+20 l)", button))
+                {
+                    inv.Remove("jerrycan", 1);
+                    v.Fuel = Mathf.Min(v.Def.FuelCapacity, v.Fuel + 20);
+                    Message("Getankt.");
+                }
+                GUI.enabled = true;
+                y += 46;
+            }
+            GUI.enabled = v.Drivable;
+            if (GUI.Button(new Rect(r.x + 18, r.yMax - 52, 200, 36), v.Def.Boat ? "Instappen en varen" : "Instappen en rijden", button))
+            {
+                vehicle = null;
+                game.Player.EnterVehicle(v);
+            }
+            GUI.enabled = true;
+            if (!v.Drivable) GUI.Label(new Rect(r.x + 230, r.yMax - 46, 250, 22), v.Health <= 0 ? "Niet meer te redden." : "Nog niet rijklaar.", small);
+            if (GUI.Button(new Rect(r.xMax - 118, r.yMax - 52, 100, 36), "Sluiten", button)) vehicle = null;
+        }
+
+        void DrivingHud(float W, float H)
+        {
+            var v = game.Player.Vehicle;
+            var r = new Rect(W - 280, H - 120, 258, 98);
+            Frame(r);
+            GUI.Label(new Rect(r.x + 14, r.y + 6, 230, 22), v.Def.Name, label);
+            GUI.Label(new Rect(r.x + 14, r.y + 26, 230, 44), $"<size=30><b>{Mathf.Abs(v.Speed) * 3.6f:0}</b></size> <color=#a8a08a>km/u</color>", label);
+            if (v.Def.NeedsFuel)
+            {
+                Fill(new Rect(r.x + 14, r.y + 76, 150, 8), new Color(0, 0, 0, 0.6f));
+                Fill(new Rect(r.x + 14, r.y + 76, 150 * v.Fuel / v.Def.FuelCapacity, 8), v.Fuel < 5 ? new Color(0.9f, 0.3f, 0.2f) : Accent);
+                GUI.Label(new Rect(r.x + 170, r.y + 70, 80, 20), $"{v.Fuel:0.0} l", small);
+            }
+            GUI.Label(new Rect(r.xMax - 90, r.y + 8, 80, 20), $"{v.Health:0}%", new GUIStyle(small) { alignment = TextAnchor.UpperRight });
+        }
+
+        void Prompts(float W, float H)
+        {
+            var pl = game.Player;
+            var cam = pl.Cam.transform;
+            var v = game.Vehicles.LookedAt(cam.position, cam.forward, 4.5f + Vector3.Distance(cam.position, pl.transform.position + Vector3.up * 1.5f));
+            if (v != null)
+            {
+                string state = v.Drivable ? "rijklaar" : v.Health <= 0 ? "total loss" : $"mist {v.MissingParts().Count} onderdelen" + (v.Def.NeedsFuel && v.Fuel <= 0 ? ", geen benzine" : "");
+                GUI.Label(new Rect(0, H / 2 + 60, W, 22), $"E — {v.Def.Name} ({state})", center);
+            }
+            if (pl.Fishing) GUI.Label(new Rect(0, H / 2 + 84, W, 22), pl.Bite ? "<b>BEET! Klik!</b>" : "Wachten op een beet…", center);
         }
 
         /// <summary>Stopt een stapel in de rugzak, met behoud van magazijn en attachments.</summary>

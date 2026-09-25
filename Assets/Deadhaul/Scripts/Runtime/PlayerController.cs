@@ -33,6 +33,13 @@ namespace Deadhaul
         public bool HasGun;
         float fireCooldown, recoilPitch, recoilYaw, meleeCooldown, geigerTimer;
 
+        // voertuig en vissen
+        public Vehicle Vehicle;
+        public bool Fishing, Bite;
+        public float FishTimer;
+        Vector3 bobber;
+        float lastMouseMove = -10;
+
         VoxelCharacter body;
         Transform highlight, muzzle, viewModel, viewMuzzle, laserDot;
         Light flash;
@@ -128,11 +135,14 @@ namespace Deadhaul
                 float sens = Game.Settings.MouseSensitivity / Mathf.Lerp(1f, Mathf.Max(1f, Weapon.Zoom * 0.8f), HasGun ? AimT : 0);
                 var d = mouse.delta.ReadValue() * sens;
                 Yaw += d.x; Pitch = Mathf.Clamp(Pitch - d.y, -80f, 85f);
+                if (d.sqrMagnitude > 0.01f) lastMouseMove = Time.time;
             }
             // terugslag veert terug
             float rec = 1 - Mathf.Exp(-9f * dt);
             Pitch += recoilPitch * rec * 0.6f; recoilPitch -= recoilPitch * rec;
             Yaw += recoilYaw * rec * 0.4f; recoilYaw -= recoilYaw * rec;
+
+            if (Vehicle != null) { DriveUpdate(dt, kb, ui, alive); return; }
 
             // ------------------------------------------------ bewegen
             Vector2 wish = Vector2.zero;
@@ -347,6 +357,8 @@ namespace Deadhaul
                 if (trigger) Shoot();
                 return;
             }
+            if (SelectedDef != null && SelectedDef.Id == "hengel") { FishUpdate(mouse, dt); return; }
+            if (Fishing) Fishing = false;
             if (mouse.leftButton.wasPressedThisFrame && meleeCooldown <= 0)
             {
                 var dmg = SelectedDef?.MeleeDamage ?? 0;
@@ -446,6 +458,7 @@ namespace Deadhaul
             if (B.IsPlant(Target.Block)) { Harvest(x, y, z, Target.Block); return; }
             Chunks.SetBlock(x, y, z, B.Air);
             Game.Campfires.OnBlockChanged(x, y, z, B.Air);
+            BonusDrops(Target.Block);
             if (info.Drop != null)
             {
                 int n = info.DropCount;
@@ -490,6 +503,8 @@ namespace Deadhaul
         {
             if (Game.Combat.TryLootCorpse(Cam.transform.position, Cam.transform.forward)) return;
             if (Game.Combat.TryTalk(Cam.transform.position, Cam.transform.forward)) return;
+            var veh = Game.Vehicles.LookedAt(Cam.transform.position, Cam.transform.forward, 4.5f + Vector3.Distance(Cam.transform.position, transform.position + Vector3.up * 1.5f));
+            if (veh != null) { Game.Hud.OpenVehicle(veh); return; }
             if (InWater && (!Target.Hit || Target.Distance > 2f))
             {
                 Stats.Water = Mathf.Min(100, Stats.Water + 15);
@@ -502,6 +517,148 @@ namespace Deadhaul
             byte b = Target.Block;
             if (B.IsPlant(b)) { Harvest(Target.X, Target.Y, Target.Z, b); return; }
             if (Blocks.Is(b, BlockFlags.Container)) GiveLoot(Target.X, Target.Y, Target.Z, b, false);
+        }
+
+        /// <summary>Sloopbuit: onderdelen uit autowrakken, wormen uit de aarde.</summary>
+        void BonusDrops(byte b)
+        {
+            string item = null;
+            double r = rng.NextDouble();
+            if (b == B.Tire && r < 0.25) item = "band";
+            else if (b == B.CarRed || b == B.CarBlue || b == B.CarGrey || b == B.CarWhite)
+                item = r < 0.05 ? "bougies" : r < 0.07 ? "brandstofpomp" : r < 0.085 ? "accu" : null;
+            else if ((b == B.Dirt || b == B.Grass || b == B.Farmland) && r < 0.12) item = "aas";
+            if (item == null) return;
+            if (Inv.Add(item, 1) == 0) Game.Hud.Message($"Gevonden: {Items.Get(item).Name}!");
+        }
+
+        // ------------------------------------------------ voertuigen
+        public void EnterVehicle(Vehicle v)
+        {
+            if (!v.Drivable) return;
+            Vehicle = v; v.Occupied = true;
+            Aiming = false; Fishing = false; Crouching = false;
+            body.gameObject.SetActive(false);
+            if (viewModel) viewModel.gameObject.SetActive(false);
+            Yaw = v.Yaw; Pitch = 15;
+            Game.Hud.Message(v.Def.Boat ? "W/S varen, A/D sturen, E uitstappen." : "W/S gas en achteruit, A/D sturen, spatie remmen, H toeteren, L lichten, E uitstappen.");
+        }
+
+        /// <summary>Direct uit het voertuig (bij doodgaan of respawnen).</summary>
+        public void LeaveVehicleImmediately()
+        {
+            if (Vehicle != null) { Vehicle.Occupied = false; Vehicle.Speed = 0; }
+            Vehicle = null;
+            body.gameObject.SetActive(true);
+            lastToolKey = null;
+        }
+
+        public void ExitVehicle()
+        {
+            var v = Vehicle;
+            if (v == null) return;
+            if (Mathf.Abs(v.Speed) > 3f) { Game.Hud.Message("Eerst stoppen."); return; }
+            float yr = v.Yaw * Mathf.Deg2Rad;
+            var right = new Vector3(Mathf.Cos(yr), 0, -Mathf.Sin(yr));
+            foreach (float side in new[] { -1f, 1f })
+            {
+                var p = CombatSystem.ToV(v.Pos) + right * side * (v.Def.Width * 0.5f + 0.7f);
+                float gy = GroundAt(Store, p.x, p.z);
+                if (Mathf.Abs(gy - v.Pos.Y) > 2.5f && !v.Def.Boat) continue;
+                Teleport(new V3(p.x, v.Def.Boat ? Mathf.Max(gy, World.SeaLevelMeters - 1.2f) : gy + 0.02f, p.z));
+                break;
+            }
+            v.Occupied = false; v.Speed = 0;
+            Vehicle = null;
+            body.gameObject.SetActive(true);
+            lastToolKey = null;
+            RefreshTool();
+        }
+
+        void DriveUpdate(float dt, Keyboard kb, bool ui, bool alive)
+        {
+            var v = Vehicle;
+            var input = new VehiclePhysics.Input();
+            if (!ui && alive && kb != null)
+            {
+                if (kb.wKey.isPressed) input.Throttle += 1; if (kb.sKey.isPressed) input.Throttle -= 1;
+                if (kb.dKey.isPressed) input.Steer += 1; if (kb.aKey.isPressed) input.Steer -= 1;
+                input.Brake = kb.spaceKey.isPressed;
+                if (kb.eKey.wasPressedThisFrame) { ExitVehicle(); if (Vehicle == null) return; }
+                if (kb.hKey.wasPressedThisFrame && !v.Def.Boat) Game.Vehicles.Horn(v);
+                if (kb.lKey.wasPressedThisFrame) Game.Vehicles.Lights = !Game.Vehicles.Lights;
+            }
+            if (!alive) { LeaveVehicleImmediately(); return; }
+            Game.Vehicles.Drive(v, input, dt);
+            Pos = new V3(v.Pos.X, v.Pos.Y + 0.4f, v.Pos.Z);
+            transform.position = CombatSystem.ToV(Pos);
+            // camera: achter het voertuig, vrij rond te kijken met de muis
+            if (Time.time - lastMouseMove > 1.5f) { Yaw = Mathf.LerpAngle(Yaw, v.Yaw, 1 - Mathf.Exp(-2.5f * dt)); Pitch = Mathf.Lerp(Pitch, 14, 1 - Mathf.Exp(-2 * dt)); }
+            var look = Quaternion.Euler(Pitch, Yaw, 0);
+            var pivot = CombatSystem.ToV(v.Pos) + Vector3.up * (v.Def.Height + 0.8f);
+            float want = v.Def.Length * 1.3f + 3f;
+            var back = look * Vector3.back;
+            var hit = Store.Raycast(new V3(pivot.x, pivot.y, pivot.z), new V3(back.x, back.y, back.z), want + 0.3f, false);
+            Cam.transform.position = pivot + back * (hit.Hit ? Mathf.Max(1f, hit.Distance - 0.3f) : want);
+            Cam.transform.rotation = look;
+            Cam.fieldOfView = Mathf.Lerp(Cam.fieldOfView, 68 + Mathf.Abs(v.Speed) * 0.4f, 1 - Mathf.Exp(-4 * dt));
+            highlight.gameObject.SetActive(false);
+            flash.enabled = false;
+            Stats.Tick(dt, Game.Clock.Ambient, 0, false, false, Game.Equipment.Warmth, Game.Gen.RadiationAt(Mathf.FloorToInt(Pos.X / World.VoxelSize), Mathf.FloorToInt(Pos.Z / World.VoxelSize), out _) * 2f * (1 - Game.Equipment.Radiation));
+        }
+
+        // ------------------------------------------------ vissen
+        void FishUpdate(Mouse mouse, float dt)
+        {
+            if (!Fishing)
+            {
+                if (!mouse.leftButton.wasPressedThisFrame) return;
+                // zoek wateroppervlak in de kijkrichting
+                Vector3 o = Cam.transform.position, f = Cam.transform.forward;
+                for (float t = 1; t < 22; t += 0.25f)
+                {
+                    var p = o + f * t;
+                    int vx = Mathf.FloorToInt(p.x / World.VoxelSize), vy = Mathf.FloorToInt(p.y / World.VoxelSize), vz = Mathf.FloorToInt(p.z / World.VoxelSize);
+                    byte b = Store.Get(vx, vy, vz);
+                    if (b == B.Water) { bobber = new Vector3(p.x, World.SeaLevelMeters + 0.02f, p.z); break; }
+                    if (Blocks.Solid[b]) { Game.Hud.Message("Werp uit op open water."); return; }
+                    if (t >= 21.75f) { Game.Hud.Message("Werp uit op open water."); return; }
+                }
+                bool bait = Inv.Remove("aas", 1);
+                Fishing = true; Bite = false;
+                FishTimer = Deadhaul.Core.Fishing.WaitTime(bait, rng);
+                attackAnim = 1;
+                Sfx.Instance.Play("inslag", bobber, 0.3f, 1.8f, 30f);
+                Game.Hud.Message(bait ? "Uitgeworpen met aas." : "Uitgeworpen (zonder aas bijt het minder snel).");
+                return;
+            }
+            // dobber
+            float bob = Bite ? -0.12f + Mathf.Sin(Time.time * 25) * 0.05f : Mathf.Sin(Time.time * 2) * 0.02f;
+            Fx.Instance.Emit(bobber + Vector3.up * bob, Vector3.zero, B.Bandana, 0.06f, 0.03f, 0, 0);
+            if ((CombatSystem.ToV(Pos) - bobber).magnitude > 26f) { Fishing = false; Game.Hud.Message("De lijn is te lang geworden."); return; }
+            FishTimer -= dt;
+            if (!Bite && FishTimer <= 0)
+            {
+                Bite = true; FishTimer = 1.3f;
+                Fx.Instance.Burst(bobber, Vector3.up, B.Glass, 8, 1.5f, 0.04f, 0.5f, 6);
+                Sfx.Instance.Play2D("tik", 0.8f, 0.6f);
+                Game.Hud.Message("Beet! Klik nu!");
+            }
+            else if (Bite && FishTimer <= 0) { Fishing = false; Game.Hud.Message("De vis is ontsnapt."); return; }
+            if (mouse.leftButton.wasPressedThisFrame)
+            {
+                if (Bite)
+                {
+                    int bx = Mathf.FloorToInt(bobber.x / World.VoxelSize), bz = Mathf.FloorToInt(bobber.z / World.VoxelSize);
+                    var fish = Deadhaul.Core.Fishing.Catch(Game.Gen.RadiationAt(bx, bz, out _), rng);
+                    if (Inv.Add(fish, 1) == 0) Game.Hud.Message($"Gevangen: {Items.Get(fish).Name}!");
+                    else Game.Hud.Message("Je rugzak zit vol.");
+                    Fx.Instance.Burst(bobber, Vector3.up, B.Glass, 14, 2.5f, 0.05f, 0.6f, 6);
+                }
+                else Game.Hud.Message("Binnengehaald.");
+                Fishing = false;
+                attackAnim = 1;
+            }
         }
 
         /// <summary>Oogsten: rijpe gewassen geven eten en soms zaad; zaailingen geven hun zaad terug.</summary>

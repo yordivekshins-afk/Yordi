@@ -30,6 +30,7 @@ namespace Deadhaul
         public Campfires Campfires { get; private set; }
         public CombatSystem Combat { get; private set; }
         public Equipment Equipment { get; private set; } = new Equipment();
+        public VehicleManager Vehicles { get; private set; }
         public Survival Stats { get; private set; } = new Survival();
         public Inventory Inventory { get; private set; } = new Inventory();
         public GameClock Clock { get; private set; } = new GameClock();
@@ -64,6 +65,8 @@ namespace Deadhaul
             Combat = new GameObject("Gevechten").AddComponent<CombatSystem>();
             Combat.Init(this);
             new GameObject("Akkers").AddComponent<Farms>().Init(Chunks);
+            Vehicles = new GameObject("Voertuigen").AddComponent<VehicleManager>();
+            Vehicles.Init(this);
 
             var cam = CreateCamera();
             Player = new GameObject("Speler").AddComponent<PlayerController>();
@@ -108,6 +111,7 @@ namespace Deadhaul
             Player.FlashBattery = 1f;
             Player.RefreshLook();
             Combat.ClearAll();
+            Vehicles.Clear();
             SpawnAtStart(false);
         }
 
@@ -165,6 +169,7 @@ namespace Deadhaul
 
         public void Respawn()
         {
+            Player.LeaveVehicleImmediately();
             Stats = new Survival();
             Inventory = new Inventory();
             Equipment = StarterClothes();
@@ -217,7 +222,7 @@ namespace Deadhaul
         }
 
         // ------------------------------------------------------------ opslaan
-        const int SaveVersion = 2;
+        const int SaveVersion = 3;
 
         public void Save()
         {
@@ -235,6 +240,7 @@ namespace Deadhaul
                 Inventory.Write(w);
                 Equipment.Write(w);
                 w.Write(Combat.Kills);
+                Vehicles.Write(w);
                 Chunks.Store.WriteEdits(w);
                 Hud.Message("Spel opgeslagen.");
             }
@@ -258,6 +264,7 @@ namespace Deadhaul
                 Inventory = new Inventory(); Inventory.Read(r);
                 Equipment = new Equipment(); Equipment.Read(r);
                 Combat.Kills = r.ReadInt32();
+                Vehicles.Read(r);
                 Chunks.Store.ReadEdits(r);
                 Chunks.ReloadAll();
                 pendingSpawn = p; pendingFromSave = true; spawned = false;

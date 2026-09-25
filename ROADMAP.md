@@ -58,11 +58,14 @@ Werkafspraak uit het dossier blijft: **elke mijlpaal is speelbaar**, en er wordt
 - ✅ Nieuwe recepten: brood, groentesoep, gepofte aardappel
 - Nog te doen: rekruteren en je eigen nederzetting bouwen, seizoenen, economie tussen steden, mechaniekers
 
-## M5 – Voertuigen en reizen
+## ✅ M5 – Voertuigen, boten en vissen
 
-- Autowrakken met **motoren en onderdelen die je moet repareren** (accu, bougies, banden, brandstofpomp)
-- Brandstof stoken en stroom opwekken (dossier S-06)
-- **Boten**: rivieren, meren, de grote zee; **eilanden** en het Stille Eiland; **vissen**
+- ✅ Redbare **auto's en pick-ups** op snelwegen, in straten en op parkeerplaatsen: repareer accu, bougies, banden en brandstofpomp,
+  tank met jerrycans, en rij weg — met draaiende wielen, koplampen, motorgeluid, toeter, botsschade en aanrijdingen
+- ✅ Onderdelen vind je in garages, benzinestations en door autowrakken te slopen
+- ✅ **Roei- en motorboten** langs de oevers; varen over meren en kratermeren
+- ✅ **Vissen** met hengel en aas (wormen uit de aarde): baars, karper, snoek — en gloeivis in stralingswater; bakken bij het vuur
+- Nog te doen: brandstof stoken en stroom opwekken (dossier S-06), zeewaardige schepen, eilanden en het Stille Eiland, rivieren
 
 ## M6 – Wereld verdiepen
 
