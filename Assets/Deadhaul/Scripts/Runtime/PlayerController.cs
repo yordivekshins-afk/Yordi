@@ -35,6 +35,8 @@ namespace Deadhaul
 
         // voertuig en vissen
         public Vehicle Vehicle;
+        float shake;
+        public void Shake(float amount) { shake = Mathf.Max(shake, amount); }
         public bool Fishing, Bite;
         public float FishTimer;
         Vector3 bobber;
@@ -234,6 +236,12 @@ namespace Deadhaul
                 Cam.transform.position = shoulder + back * d;
             }
             Cam.transform.rotation = look;
+            if (shake > 0)
+            {
+                shake = Mathf.Max(0, shake - dt * 1.6f);
+                Cam.transform.position += Random.insideUnitSphere * shake * 0.25f;
+                Cam.transform.rotation *= Quaternion.Euler(Random.Range(-1f, 1f) * shake * 2.5f, Random.Range(-1f, 1f) * shake * 2.5f, 0);
+            }
             float zoom = HasGun ? Mathf.Lerp(1f, Weapon.Zoom, AimT) : 1f;
             float baseFov = sprint ? 76f : 70f;
             Cam.fieldOfView = Mathf.Lerp(Cam.fieldOfView, baseFov / zoom, 1 - Mathf.Exp(-14 * dt));
@@ -295,7 +303,10 @@ namespace Deadhaul
                 if (geigerTimer <= 0) { Sfx.Instance.Play2D("tik", 0.5f, 1f + (float)rng.NextDouble() * 0.3f); geigerTimer = Mathf.Lerp(0.6f, 0.02f, Radiation) * (float)(0.3 + rng.NextDouble()); }
             }
             float exertion = sprint && hs > 1 ? 2 : hs > 0.5f ? 1 : 0;
-            Stats.Tick(dt, Game.Clock.Ambient, exertion, InWater, NearFire, Game.Equipment.Warmth, dose);
+            // hoger is kouder: boven de boomgrens vriest het
+            float altitude = Pos.Y - (World.Sea + 30) * World.VoxelSize;
+            float ambient = Game.Clock.Ambient - Mathf.Clamp01(altitude / 12f) * 0.45f;
+            Stats.Tick(dt, ambient, exertion, InWater, NearFire, Game.Equipment.Warmth, dose);
         }
 
         void ToggleFlashlight()
@@ -358,6 +369,20 @@ namespace Deadhaul
                 return;
             }
             if (SelectedDef != null && SelectedDef.Id == "hengel") { FishUpdate(mouse, dt); return; }
+            if (SelectedDef != null && SelectedDef.Id == "granaat")
+            {
+                if (mouse.leftButton.wasPressedThisFrame && meleeCooldown <= 0)
+                {
+                    var f = Cam.transform.forward;
+                    var from = transform.position + Vector3.up * 1.6f + f * 0.6f;
+                    Game.Combat.ThrowGrenade(from, f * 15f + Vector3.up * 3.5f, Game.Combat.PlayerActor.Id);
+                    Inv.TakeFromSlot(Selected);
+                    RefreshTool();
+                    attackAnim = 1; meleeCooldown = 0.8f;
+                    Game.Hud.Message("Granaat!");
+                }
+                return;
+            }
             if (Fishing) Fishing = false;
             if (mouse.leftButton.wasPressedThisFrame && meleeCooldown <= 0)
             {

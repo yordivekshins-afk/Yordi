@@ -209,6 +209,20 @@ namespace Deadhaul
             BlockChanged?.Invoke(x, y, z, b);
         }
 
+        /// <summary>Veel blokken tegelijk (explosies): elke geraakte chunk wordt één keer opnieuw gemesht.</summary>
+        public void SetBlocks(List<(int x, int y, int z, byte b)> list)
+        {
+            var dirty = new HashSet<long>();
+            var coords = new List<(int, int)>();
+            foreach (var (x, y, z, b) in list)
+            {
+                foreach (var (cx, cz) in Store.Set(x, y, z, b))
+                    if (dirty.Add(VoxelStore.Key(cx, cz))) coords.Add((cx, cz));
+                BlockChanged?.Invoke(x, y, z, b);
+            }
+            foreach (var (cx, cz) in coords) Remesh(cx, cz);
+        }
+
         public void Remesh(int cx, int cz)
         {
             var pad = Store.GetPadded(cx, cz);

@@ -258,6 +258,14 @@ namespace Deadhaul.Core
                     break;
                 case B.Crop:
                     EmitBox(m, lx, y, lz, 0.28f, 0, 0.28f, 0.72f, 0.55f, 0.72f, B.Crop, v); break;
+                case B.Reed:
+                    for (int k = 0; k < 4; k++) { float o = 0.12f + k * 0.21f; EmitBox(m, lx, y, lz, o, 0, 0.15f + (k % 2) * 0.45f, o + 0.08f, 1.3f + j + k * 0.1f, 0.25f + (k % 2) * 0.45f, B.Reed, v); }
+                    EmitBox(m, lx, y, lz, 0.4f, 1.1f, 0.4f, 0.55f, 1.45f, 0.55f, B.Leather, v);
+                    break;
+                case B.Mushroom:
+                    EmitBox(m, lx, y, lz, 0.44f, 0, 0.44f, 0.56f, 0.3f, 0.56f, B.Bone, v);
+                    EmitBox(m, lx, y, lz, 0.25f, 0.3f, 0.25f, 0.75f, 0.45f, 0.75f, B.Mushroom, v);
+                    break;
                 default: // zaailingen
                     EmitBox(m, lx, y, lz, 0.4f, 0, 0.4f, 0.6f, 0.22f + j, 0.6f, b, v);
                     EmitBox(m, lx, y, lz, 0.28f, 0.14f, 0.45f, 0.72f, 0.2f, 0.55f, b, v);

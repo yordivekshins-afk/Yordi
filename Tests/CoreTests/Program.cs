@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.IO;
 using System.IO.Compression;
 using Deadhaul.Core;
@@ -437,6 +438,54 @@ static class Program
             int glow = 0; for (int i = 0; i < 50; i++) if (Fishing.Catch(0.5f, rng) == "gloeivis") glow++;
             Check(glow > 20 && Fishing.Catch(0f, rng) != "gloeivis", $"in stralingswater vang je vooral gloeivis ({glow}/50)");
             Check(Fishing.WaitTime(true, rng) < 10.01f, "aas laat vis sneller bijten");
+        }
+
+        Console.WriteLine("Biomen, grotten, meubels en explosies");
+        {
+            var seen = new Dictionary<WorldGen.Biome, int>();
+            for (int z = -6000; z < 6000; z += 40) for (int x = -6000; x < 6000; x += 40)
+            {
+                var c = gen.GetColumn(x, z);
+                if (c.H <= World.Sea + 1 || c.Kind != ColumnKind.Nature) continue;
+                var bm = gen.BiomeAt(x, z, c.H, gen.Moisture(x, z));
+                seen[bm] = seen.TryGetValue(bm, out var k) ? k + 1 : 1;
+            }
+            Check(seen.Count == 6, "alle biomen komen voor: " + string.Join(", ", System.Linq.Enumerable.Select(seen, kv => $"{kv.Key} {kv.Value}")));
+
+            int caveAir = 0, mushrooms = 0, chunksWithCaves = 0;
+            var sw2 = Stopwatch.StartNew(); int gens = 0;
+            for (int cz = -40; cz <= 40 && chunksWithCaves < 6; cz += 4) for (int cx = -40; cx <= 40 && chunksWithCaves < 6; cx += 4)
+            {
+                var pad = gen.GenerateChunk(cx, cz); gens++;
+                int air = 0;
+                for (int pz = 1; pz <= World.ChunkSize; pz++) for (int px = 1; px <= World.ChunkSize; px++)
+                {
+                    var col = gen.GetColumn(cx * World.ChunkSize + px - 1, cz * World.ChunkSize + pz - 1);
+                    if (col.Kind != ColumnKind.Nature || col.H <= World.Sea + 8) continue;
+                    for (int y = World.Sea + 2; y < col.H - 3; y++) { byte b = pad[World.IdxPad(px, y, pz)]; if (b == B.Air) air++; if (b == B.Mushroom) mushrooms++; }
+                }
+                if (air > 20) chunksWithCaves++;
+                caveAir += air;
+            }
+            sw2.Stop();
+            Check(chunksWithCaves > 0, $"grotten onder de heuvels ({caveAir} holle voxels in {chunksWithCaves} chunks, {mushrooms} gloeizwammen)");
+            Console.WriteLine($"         generatie met grotten: {sw2.ElapsedMilliseconds / (float)gens:0.0} ms per chunk");
+
+            var counts = new int[256];
+            for (int cz = 18; cz < 24; cz++) for (int cx = 18; cx < 24; cx++) foreach (var v in gen.GenerateChunk(cx, cz)) counts[v]++;
+            Check(counts[B.Cabinet] > 0 && counts[B.Bin] > 0, $"meubels en vuilnisbakken in de stad ({counts[B.Cabinet]} kasten, {counts[B.Fridge]} koelkasten, {counts[B.Bin]} vuilnisbakken, {counts[B.ExplosiveBarrel]} explosieve vaten)");
+
+            var store = new VoxelStore();
+            store.Add(0, 0, new byte[World.PadVolume]);
+            for (int x = 2; x < 30; x++) for (int y = 40; y < 46; y++) { store.Set(x, y, 10, B.Concrete); store.Set(x, y, 20, B.Planks); }
+            var boomC = Explosion.Carve(store, new V3(8 * World.VoxelSize, 43 * World.VoxelSize, 11.5f * World.VoxelSize), 2.5f, 1.2f);
+            var boomW = Explosion.Carve(store, new V3(8 * World.VoxelSize, 43 * World.VoxelSize, 21.5f * World.VoxelSize), 2.5f, 1.2f);
+            int conc = boomC.Removed.FindAll(r => r.b == B.Concrete).Count, wood = boomW.Removed.FindAll(r => r.b == B.Planks).Count;
+            Check(wood > conc && conc > 0, $"explosie slaat meer uit hout ({wood}) dan uit beton ({conc})");
+            store.Set(12, 43, 12, B.ExplosiveBarrel);
+            var chain = Explosion.Carve(store, new V3(10 * World.VoxelSize, 43 * World.VoxelSize, 12 * World.VoxelSize), 2.5f, 1.2f);
+            Check(chain.Chain.Count == 1, "een explosief vat in de buurt knalt mee");
+            Check(Explosion.Damage(0.5f, 2.5f, 150) > 100 && Explosion.Damage(6f, 2.5f, 150) == 0, "schade neemt af met afstand");
         }
 
         if (args.Length > 0 && args[0] == "map")

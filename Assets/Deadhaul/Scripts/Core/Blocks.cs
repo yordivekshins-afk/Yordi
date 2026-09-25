@@ -33,8 +33,9 @@ namespace Deadhaul.Core
             Ash = 42, RadCrystal = 43, Sandbag = 44, AmmoCrate = 45, Scorched = 46,
             Farmland = 47, Potato = 48, Wheat = 49, Corn = 50, Cabbage = 51, Carrot = 52, Tomato = 53, Pumpkin = 54,
             SeedPotato = 55, SeedWheat = 56, SeedCorn = 57, SeedCabbage = 58, SeedCarrot = 59, SeedTomato = 60, SeedPumpkin = 61,
-            Bed = 62, Cloth = 63, Well = 64;
-        public const int Count = 65;
+            Bed = 62, Cloth = 63, Well = 64,
+            Snow = 65, Mud = 66, Reed = 67, Cabinet = 68, Fridge = 69, Bin = 70, ExplosiveBarrel = 71, Mushroom = 72, BoneBlock = 73, Ice = 74;
+        public const int Count = 75;
 
         // gewassen: rijp blok en het zaailing-blok per soort, in dezelfde volgorde
         public static readonly byte[] Crops = { Potato, Wheat, Corn, Cabbage, Carrot, Tomato, Pumpkin };
@@ -42,7 +43,7 @@ namespace Deadhaul.Core
         public static readonly string[] CropItems = { "aardappel", "graan", "mais", "kool", "wortel", "tomaat", "pompoen" };
         public static bool IsCrop(byte b) => b >= Potato && b <= Pumpkin;
         public static bool IsSeedling(byte b) => b >= SeedPotato && b <= SeedPumpkin;
-        public static bool IsPlant(byte b) => b == Crop || IsCrop(b) || IsSeedling(b);
+        public static bool IsPlant(byte b) => b == Crop || b == Reed || b == Mushroom || IsCrop(b) || IsSeedling(b);
         public static int CropIndex(byte b) => IsCrop(b) ? b - Potato : IsSeedling(b) ? b - SeedPotato : -1;
 
         // Kleuren voor personages en voorwerpen (komen niet in de wereld voor)
@@ -156,6 +157,16 @@ namespace Deadhaul.Core
             Def(B.Bed, "bed", 150, 140, 120, true, 0.8f, "stof");
             Def(B.Cloth, "zeildoek", 130, 116, 84, true, 0.4f, "stof");
             Def(B.Well, "waterput", 112, 110, 104, true, 3f, "steen");
+            Def(B.Snow, "sneeuw", 232, 236, 240, true, 0.4f, "aarde", smooth: 0.35f);
+            Def(B.Mud, "modder", 62, 50, 36, true, 0.5f, "aarde", smooth: 0.6f);
+            Def(B.Reed, "riet", 138, 128, 70, false, 0.1f, "stof", BlockFlags.Foliage);
+            Def(B.Cabinet, "kast", 118, 86, 58, true, 1.2f, "hout", BlockFlags.Container);
+            Def(B.Fridge, "koelkast", 208, 210, 206, true, 2f, "schroot", BlockFlags.Container, smooth: 0.6f);
+            Def(B.Bin, "vuilnisbak", 58, 74, 60, true, 1f, "schroot", BlockFlags.Container);
+            Def(B.ExplosiveBarrel, "explosief vat", 170, 40, 30, true, 1.5f, null, smooth: 0.4f, metal: 0.6f);
+            Def(B.Mushroom, "gloeizwam", 120, 255, 200, false, 0.1f, "jodium", BlockFlags.Emissive | BlockFlags.Foliage);
+            Def(B.BoneBlock, "gebleekte botten", 222, 214, 190, true, 0.8f, "steen");
+            Def(B.Ice, "ijs", 170, 205, 225, true, 1f, null, smooth: 0.9f);
             Def(B.Skin, "huid", 206, 160, 124, true, 1, null);
             Def(B.SkinDark, "huid", 142, 98, 70, true, 1, null);
             Def(B.Hair, "haar", 48, 36, 28, true, 1, null);

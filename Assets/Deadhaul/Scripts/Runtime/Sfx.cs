@@ -33,6 +33,7 @@ namespace Deadhaul
             clips["grom"] = Growl();
             clips["tik"] = Click(0.004f, 5000f, 0.6f);
             clips["treffer"] = Click(0.03f, 1800f, 0.4f);
+            clips["explosie"] = Boom();
             for (int i = 0; i < 24; i++)
             {
                 var go = new GameObject("Geluid");
@@ -170,6 +171,24 @@ namespace Deadhaul
                 d[i] = (Mathf.Sign(Mathf.Sin(ph)) * 0.35f + R() * 0.25f) * env * 0.5f;
             }
             return Make("grom", d);
+        }
+
+        AudioClip Boom()
+        {
+            int n = (int)(Rate * 2.2f);
+            var d = new float[n];
+            float lp = 0, lp2 = 0;
+            for (int i = 0; i < n; i++)
+            {
+                float t = i / (float)Rate;
+                float noise = R();
+                lp += (noise - lp) * 0.08f;
+                lp2 += (noise - lp2) * 0.01f;
+                float env = t < 0.01f ? 1 : Mathf.Exp(-(t - 0.01f) * 3.2f);
+                float thump = Mathf.Sin(2 * Mathf.PI * (38f - t * 10f) * t) * Mathf.Exp(-t * 4f);
+                d[i] = Mathf.Clamp((noise * Mathf.Exp(-t * 30f) + lp * 2.2f * env + lp2 * 6f * env + thump * 1.2f) * 0.9f, -1, 1);
+            }
+            return Make("explosie", d);
         }
 
         AudioClip Wind()

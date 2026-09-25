@@ -50,6 +50,9 @@ namespace Deadhaul
         GameState game;
         AiContext ctx;
         readonly List<Bullet> bullets = new List<Bullet>();
+        struct Grenade { public Vector3 Pos, Vel; public float Fuse; public int Owner; }
+        readonly List<Grenade> grenades = new List<Grenade>();
+        readonly List<(V3 pos, float delay)> pendingBooms = new List<(V3, float)>();
         readonly List<BulletEvent> events = new List<BulletEvent>();
         readonly List<NpcView> npcs = new List<NpcView>();
         readonly System.Random rng = new System.Random();
@@ -91,6 +94,7 @@ namespace Deadhaul
             Spawn(dt);
             TickNpcs(dt);
             StepBullets(dt);
+            StepGrenades(dt);
         }
 
         void Spawn(float dt)
@@ -451,6 +455,11 @@ namespace Deadhaul
                 {
                     case BulletEventType.Impact:
                     case BulletEventType.Penetrate:
+                        if (e.Block == B.ExplosiveBarrel)
+                        {
+                            pendingBooms.Add((new V3((e.X + 0.5f) * World.VoxelSize, (e.Y + 0.5f) * World.VoxelSize, (e.Z + 0.5f) * World.VoxelSize), 0.15f));
+                            break;
+                        }
                         Fx.Instance.Impact(p, nrm, e.Block);
                         if (e.Type == BulletEventType.Impact) Sfx.Instance.Play("inslag", p, 0.5f, 1f, 60f);
                         Noise.Emit(e.Pos, 8, e.Owner);
@@ -476,6 +485,82 @@ namespace Deadhaul
                     }
                 }
             }
+        }
+
+        public void ThrowGrenade(Vector3 from, Vector3 vel, int owner) => grenades.Add(new Grenade { Pos = from, Vel = vel, Fuse = 3f, Owner = owner });
+
+        void StepGrenades(float dt)
+        {
+            var store = game.Chunks.Store;
+            for (int i = grenades.Count - 1; i >= 0; i--)
+            {
+                var g = grenades[i];
+                g.Fuse -= dt;
+                g.Vel.y -= 9.81f * dt;
+                // per as bewegen en stuiteren tegen voxels
+                var p = g.Pos;
+                for (int axis = 0; axis < 3; axis++)
+                {
+                    var np = p;
+                    np[axis] += g.Vel[axis] * dt;
+                    if (Blocks.Solid[store.Get(Mathf.FloorToInt(np.x / World.VoxelSize), Mathf.FloorToInt(np.y / World.VoxelSize), Mathf.FloorToInt(np.z / World.VoxelSize))])
+                    {
+                        var v = g.Vel; v[axis] *= -0.35f; v *= 0.8f; g.Vel = v;
+                        if (Mathf.Abs(g.Vel[axis]) > 1.5f) Sfx.Instance.Play("tik", p, 0.6f, 0.5f, 40f);
+                    }
+                    else p = np;
+                }
+                g.Pos = p;
+                Fx.Instance.Emit(g.Pos, Vector3.zero, B.OD, 0.09f, 0.02f, 0, 0);
+                if (g.Fuse <= 0) { grenades.RemoveAt(i); Explode(new V3(p.x, p.y, p.z), 2.6f, 1.3f, g.Owner); }
+                else grenades[i] = g;
+            }
+            for (int i = pendingBooms.Count - 1; i >= 0; i--)
+            {
+                var (pos, delay) = pendingBooms[i];
+                delay -= dt;
+                if (delay <= 0) { pendingBooms.RemoveAt(i); Explode(pos, 3.2f, 1.5f, PlayerActor.Id); }
+                else pendingBooms[i] = (pos, delay);
+            }
+        }
+
+        /// <summary>Knal: voxels weg, puin, vuur, rook, schade, geluid en een schokgolf voor de camera.</summary>
+        public void Explode(V3 center, float radius, float power, int owner)
+        {
+            var c = ToV(center);
+            var res = Explosion.Carve(game.Chunks.Store, center, radius, power);
+            var edits = new List<(int x, int y, int z, byte b)>();
+            foreach (var (x, y, z, b) in res.Removed)
+            {
+                edits.Add((x, y, z, B.Air));
+                if (edits.Count % 3 == 0)
+                {
+                    var bp = new Vector3((x + 0.5f) * World.VoxelSize, (y + 0.5f) * World.VoxelSize, (z + 0.5f) * World.VoxelSize);
+                    Fx.Instance.Emit(bp, (bp - c).normalized * Random.Range(4f, 11f) + Vector3.up * 3, b, Random.Range(0.06f, 0.14f), Random.Range(1.2f, 2.5f));
+                }
+                if (Blocks.Is(b, BlockFlags.Container)) game.Chunks.Store.MarkLooted(x, y, z);
+            }
+            game.Chunks.SetBlocks(edits);
+            foreach (var chain in res.Chain) pendingBooms.Add((chain, 0.25f + Random.Range(0f, 0.2f)));
+            // vuurbal en rook
+            for (int i = 0; i < 40; i++) Fx.Instance.Emit(c, Random.insideUnitSphere * 7f, i % 3 == 0 ? B.Spark : B.Flash, Random.Range(0.08f, 0.22f), Random.Range(0.15f, 0.4f), 0, 3f);
+            for (int i = 0; i < 25; i++) Fx.Instance.Emit(c + Random.insideUnitSphere, Random.insideUnitSphere * 2f + Vector3.up * 2.5f, B.Dust, Random.Range(0.3f, 0.6f), Random.Range(2f, 4f), -0.4f, 0.8f);
+            Fx.Instance.MuzzleFlash(c, Vector3.up, false);
+            Sfx.Instance.Play("explosie", c, 1f, 1f, 600f);
+            Noise.Emit(center, 320f, owner);
+            // schade aan iedereen in de buurt
+            foreach (var a in Actors.All)
+            {
+                if (!a.Alive) continue;
+                float d = (a.Chest - center).Length;
+                float dmg = Explosion.Damage(d, radius, 160f);
+                if (dmg <= 0) continue;
+                bool wasAlive = a.Alive;
+                a.TakeDamage(dmg, HitZone.Romp, owner);
+                if (owner == PlayerActor.Id && a != PlayerActor) game.Hud.HitMarker(wasAlive && !a.Alive, false);
+            }
+            float pd = Vector3.Distance(game.Player.Cam.transform.position, c);
+            game.Player.Shake(Mathf.Clamp01(1.5f - pd / 25f));
         }
 
         /// <summary>Het dichtstbijzijnde lijk voor de speler, om te doorzoeken.</summary>

@@ -118,6 +118,7 @@ namespace Deadhaul.Core
             Add(new ItemDef { Id = "karper", Name = "Karper", Kind = ItemKind.Food, MaxStack = 6, Weight = 0.9f, Food = 16, SickChance = 0.3f, IconBlock = B.Khaki, Value = 10 });
             Add(new ItemDef { Id = "snoek", Name = "Snoek", Kind = ItemKind.Food, MaxStack = 6, Weight = 1.6f, Food = 22, SickChance = 0.3f, IconBlock = B.OD, Value = 16 });
             Add(new ItemDef { Id = "gloeivis", Name = "Gloeivis", Kind = ItemKind.Food, MaxStack = 6, Weight = 0.7f, Food = 14, SickChance = 0.6f, IconBlock = B.Glow, Value = 22, Description = "Gemuteerd. Je kunt hem eten… als je durft." });
+            Add(new ItemDef { Id = "granaat", Name = "Handgranaat", Kind = ItemKind.Weapon, MaxStack = 5, Weight = 0.4f, IconBlock = B.OD, Value = 45, Description = "Linkermuis om te gooien. Ontploft na 3 seconden." });
             Add(new ItemDef { Id = "oude_schoen", Name = "Oude schoen", Kind = ItemKind.Misc, MaxStack = 3, Weight = 0.5f, IconBlock = B.Leather, Value = 1 });
             Add(new ItemDef { Id = "gebakken_vis", Name = "Gebakken vis", Kind = ItemKind.Food, MaxStack = 6, Weight = 0.4f, Food = 30, Water = 2, IconBlock = B.Leather, Value = 14 });
 
@@ -336,7 +337,7 @@ namespace Deadhaul.Core
         static readonly (string id, int min, int max, float w)[] Politie =
             { ("9mm", 8, 24, 4), ("556", 10, 30, 2), ("12g", 4, 10, 2), ("pistool", 1, 1, 1.4f), ("mp5", 1, 1, 0.7f), ("m4", 1, 1, 0.35f), ("shotgun", 1, 1, 0.8f),
               ("kruit", 2, 6, 1.5f), ("verband", 1, 2, 1.5f), ("breekijzer", 1, 1, 0.6f), ("politievest", 1, 1, 0.6f), ("helm", 1, 1, 0.3f),
-              ("demper_9mm", 1, 1, 0.35f), ("reddot", 1, 1, 0.5f), ("holo", 1, 1, 0.35f), ("wapenlamp", 1, 1, 0.5f), ("laser", 1, 1, 0.4f),
+              ("demper_9mm", 1, 1, 0.35f), ("reddot", 1, 1, 0.5f), ("granaat", 1, 2, 0.4f), ("holo", 1, 1, 0.35f), ("wapenlamp", 1, 1, 0.5f), ("laser", 1, 1, 0.4f),
               ("grip_vert", 1, 1, 0.4f), ("sling", 1, 1, 0.5f), ("mag_pistool", 1, 1, 0.4f), ("legerkistjes", 1, 1, 0.3f), ("chestrig", 1, 1, 0.3f) };
         static readonly (string id, int min, int max, float w)[] Industrie =
             { ("schroot", 2, 6, 4), ("kruit", 1, 4, 2), ("rubber", 1, 3, 2), ("batterij", 1, 2, 1.5f), ("breekijzer", 1, 1, 0.6f), ("bijl", 1, 1, 0.5f), ("water", 1, 1, 1),
@@ -346,12 +347,17 @@ namespace Deadhaul.Core
             { ("556", 20, 60, 4), ("762", 20, 60, 3), ("308", 5, 15, 1.5f), ("9mm", 15, 40, 2), ("m4", 1, 1, 1f), ("ak", 1, 1, 1f), ("mp5", 1, 1, 0.6f), ("geweer", 1, 1, 0.5f),
               ("platecarrier", 1, 1, 0.6f), ("helm", 1, 1, 0.8f), ("chestrig", 1, 1, 1f), ("legerrugzak", 1, 1, 0.6f), ("legerjas", 1, 1, 1f), ("legerbroek", 1, 1, 1f),
               ("legerkistjes", 1, 1, 1f), ("gasmasker", 1, 1, 0.6f), ("demper_geweer", 1, 1, 0.4f), ("compensator", 1, 1, 0.6f), ("scope4x", 1, 1, 0.5f),
-              ("scope8x", 1, 1, 0.2f), ("holo", 1, 1, 0.6f), ("grip_hoek", 1, 1, 0.5f), ("grip_vert", 1, 1, 0.5f), ("mag_groot", 1, 1, 0.5f), ("medkit", 1, 1, 1f) };
+              ("scope8x", 1, 1, 0.2f), ("holo", 1, 1, 0.6f), ("grip_hoek", 1, 1, 0.5f), ("grip_vert", 1, 1, 0.5f), ("mag_groot", 1, 1, 0.5f), ("medkit", 1, 1, 1f), ("granaat", 1, 3, 1.2f) };
+
+        static readonly (string id, int min, int max, float w)[] Koelkast =
+            { ("frisdrank", 1, 3, 4), ("water", 1, 2, 3), ("bonen", 1, 2, 2), ("chips", 1, 2, 1), ("tomaat", 1, 3, 1), ("kool", 1, 1, 0.5f), ("vlees", 1, 1, 0.4f), ("antibiotica", 1, 1, 0.2f) };
+        static readonly (string id, int min, int max, float w)[] Afval =
+            { ("stof", 1, 3, 4), ("schroot", 1, 2, 3), ("batterij", 1, 1, 1.5f), ("chips", 1, 1, 1), ("rubber", 1, 2, 1), ("oude_schoen", 1, 1, 1), ("9mm", 2, 6, 0.4f), ("doppen", 3, 15, 2), ("aas", 1, 4, 0.5f) };
 
         /// <summary>Deterministische inhoud van een container op deze plek.</summary>
         public static List<Stack> Roll(LotType? type, byte container, int x, int y, int z, int seed, bool military = false)
         {
-            var table = military ? Militair : container == B.Barrel ? Industrie : type switch
+            var table = military ? Militair : container == B.Barrel ? Industrie : container == B.Fridge ? Koelkast : container == B.Bin ? Afval : type switch
             {
                 LotType.Winkel => Winkel,
                 LotType.Apotheek => Apotheek,

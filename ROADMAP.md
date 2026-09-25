@@ -67,11 +67,15 @@ Werkafspraak uit het dossier blijft: **elke mijlpaal is speelbaar**, en er wordt
 - ✅ **Vissen** met hengel en aas (wormen uit de aarde): baars, karper, snoek — en gloeivis in stralingswater; bakken bij het vuur
 - Nog te doen: brandstof stoken en stroom opwekken (dossier S-06), zeewaardige schepen, eilanden en het Stille Eiland, rivieren
 
-## M6 – Wereld verdiepen
+## ✅ M6 – Wereld verdiepen
 
-- Enorme biomen: nucleaire woestijn, as-bossen, verdronken kustvlakte, bevroren hoogland, giftig moeras
-- **Grotten** en ondergrondse complexen, metro's onder capitals
-- Nog veel meer loot: vrijwel elk meubel en elke kast is doorzoekbaar
+- ✅ Biomen: vlakte, bos, dorre vlakte, **nucleaire woestijn** met duinen en gebleekte botten, **moeras** met modder en riet,
+  **besneeuwd hoogland** (kouder naarmate je hoger komt); as-bossen rond de kraters
+- ✅ **Grotten** onder de heuvels met gloeizwammen en vergeten kisten
+- ✅ Meer loot: kasten en koelkasten in huizen en flats, vuilnisbakken op straat
+- ✅ **Sloopbare gebouwen**: handgranaten en explosieve vaten (ook door erop te schieten) slaan muren weg — hout sneller dan beton —
+  met puin, vuurbal, rook, kettingreacties, schade en cameraschudden
+- Nog te doen: metro's en bunkers, instortende constructies, verdronken kustvlakte
 
 ## M7 – Presentatie op AAA-niveau
 

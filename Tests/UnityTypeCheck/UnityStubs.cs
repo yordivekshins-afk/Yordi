@@ -28,7 +28,7 @@ namespace UnityEngine
     public struct Vector2Int : IEquatable<Vector2Int> { public Vector2Int(int a, int b) { } public bool Equals(Vector2Int o) => true; public static bool operator ==(Vector2Int a, Vector2Int b) => true; public static bool operator !=(Vector2Int a, Vector2Int b) => false; public override bool Equals(object o) => true; public override int GetHashCode() => 0; }
     public struct Vector3
     {
-        public float x, y, z; public Vector3(float a, float b, float c) { x = a; y = b; z = c; }
+        public float x, y, z; public Vector3(float a, float b, float c) { x = a; y = b; z = c; } public float this[int i] { get => x; set { x = value; } }
         public static Vector3 zero, one, up, back, forward; public float sqrMagnitude => 0; public float magnitude => 0;
         public static Vector3 operator +(Vector3 a, Vector3 b) => a; public static Vector3 operator -(Vector3 a, Vector3 b) => a;
         public static Vector3 operator *(Vector3 a, float s) => a; public static Vector3 operator *(float s, Vector3 a) => a;
@@ -37,7 +37,7 @@ namespace UnityEngine
         public static Vector3 right, left, down;
     }
     public struct Quaternion { public static Quaternion identity; public static Quaternion Euler(float x, float y, float z) => default; public static Quaternion LookRotation(Vector3 f) => default;
-        public static Quaternion Slerp(Quaternion a, Quaternion b, float t) => a; public static Vector3 operator *(Quaternion q, Vector3 v) => v; }
+        public static Quaternion Slerp(Quaternion a, Quaternion b, float t) => a; public static Vector3 operator *(Quaternion q, Vector3 v) => v; public static Quaternion operator *(Quaternion a, Quaternion b) => a; }
     public struct Color { public float r, g, b, a; public Color(float r, float g, float b, float a = 1) { this.r = r; this.g = g; this.b = b; this.a = a; }
         public static Color white, black, grey; public Color linear => this; public static Color Lerp(Color a, Color b, float t) => a; public static Color operator *(Color c, float f) => c; }
     public struct Rect { public float x, y, width, height, xMax, yMax; public Rect(float x, float y, float w, float h) { this.x = x; this.y = y; width = w; height = h; xMax = 0; yMax = 0; } public bool Contains(Vector2 p) => true; }

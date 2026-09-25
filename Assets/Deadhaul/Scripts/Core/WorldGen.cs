@@ -97,6 +97,19 @@ namespace Deadhaul.Core
 
         public float Moisture(int x, int z) => n3.Fbm2(x / 520f + 40, z / 520f - 20, 2);
 
+        public enum Biome : byte { Vlakte, Bos, Dor, Woestijn, Moeras, Hoogland }
+
+        /// <summary>Biotoop op deze plek, uit vocht en hoogte.</summary>
+        public Biome BiomeAt(int x, int z, int h, float m)
+        {
+            if (h > World.Sea + 34) return Biome.Hoogland;
+            if (m < -0.42f) return Biome.Woestijn;
+            if (m < -0.22f) return Biome.Dor;
+            if (m > 0.38f && h < World.Sea + 7) return Biome.Moeras;
+            if (m > 0.18f) return Biome.Bos;
+            return Biome.Vlakte;
+        }
+
         public City GetCity(int i, int j)
         {
             long key = ((long)i << 32) ^ (uint)j;
@@ -218,6 +231,13 @@ namespace Deadhaul.Core
         public Column GetColumn(int x, int z)
         {
             float h = RawHeight(x, z);
+            float mo = Moisture(x, z);
+            if (mo < -0.42f && h > World.Sea + 2)
+            {
+                // duinen: lange ruggen in de windrichting
+                float dune = MathF.Abs(n2.Noise2(x / 26f + n4.Noise2(x / 90f, z / 90f) * 0.8f, z / 70f));
+                h += (1 - dune) * 5f * Math.Min(1, (-0.42f - mo) * 8f);
+            }
             var col = new Column { Kind = ColumnKind.Nature, RoadH = -1, CityD = 1e9f };
             var city = CityAt(x, z, out float cd, out float cf);
             if (city != null) { h += (city.Base - h) * cf; col.City = city; col.CityD = cd; }
@@ -397,6 +417,19 @@ namespace Deadhaul.Core
             }
             // interieur
             bool shop = IsShop(s);
+            if (r == 1 && !shop && s.Type != LotType.Politie && lz > 3)
+            {
+                bool againstWall = lx == 1 || lx == w - 2 || lz == d - 2;
+                float fh = Hash.H3(lx * 3 + fl, fl * 7, lz * 11, Seed ^ 0xfa);
+                if (againstWall && fh < 0.07f) return B.Cabinet;
+                if (againstWall && fh > 0.985f && (s.Type == LotType.Huis || s.Type == LotType.Flat)) return B.Fridge;
+            }
+            if (r == 2 && !shop && lz > 3)
+            {
+                bool againstWall = lx == 1 || lx == w - 2 || lz == d - 2;
+                float fh = Hash.H3(lx * 3 + fl, fl * 7, lz * 11, Seed ^ 0xfa);
+                if (againstWall && fh > 0.985f && (s.Type == LotType.Huis || s.Type == LotType.Flat)) return B.Fridge;
+            }
             if (r == 1)
             {
                 float h = Hash.H3(lx * 7 + fl, fl, lz * 5, Seed ^ 0xc4);
@@ -460,9 +493,14 @@ namespace Deadhaul.Core
                         case ColumnKind.Bridge: top = B.Stone; break;
                         case ColumnKind.Settlement: top = Hash.H2(x, z, Seed ^ 0x5e) < 0.25f ? B.Dirt : B.Grass; break;
                         default:
-                            if (h <= World.Sea + 1) top = h < World.Sea - 2 ? B.Gravel : B.Sand;
+                        {
+                            var biome = BiomeAt(x, z, h, m);
+                            if (h <= World.Sea + 1) top = h < World.Sea - 2 ? B.Gravel : biome == Biome.Moeras ? B.Mud : B.Sand;
+                            else if (biome == Biome.Hoogland) top = slope > 5 ? B.Stone : B.Snow;
                             else if (slope > 4 || h > World.Sea + 44) top = B.Stone;
-                            else if (m < -0.22f) top = Hash.H2(x, z, Seed ^ 3) < 0.08f ? B.Gravel : B.DeadGrass;
+                            else if (biome == Biome.Woestijn) top = Hash.H2(x, z, Seed ^ 3) < 0.05f ? B.Gravel : B.Sand;
+                            else if (biome == Biome.Dor) top = Hash.H2(x, z, Seed ^ 3) < 0.08f ? B.Gravel : B.DeadGrass;
+                            else if (biome == Biome.Moeras) top = Hash.H2(x, z, Seed ^ 7) < 0.3f ? B.Moss : B.Mud;
                             else top = Hash.H2(x, z, Seed ^ 4) < 0.02f ? B.Moss : B.Grass;
                             if (c.Rad > 0.12f && h > World.Sea + 1)
                             {
@@ -471,6 +509,7 @@ namespace Deadhaul.Core
                                 else if (n < c.Rad * 1.6f) top = n < c.Rad ? B.Ash : B.DeadGrass;
                             }
                             break;
+                        }
                     }
                     int b = World.IdxPad(px, 0, pz);
                     var a = o.Data;
@@ -480,6 +519,15 @@ namespace Deadhaul.Core
                     for (int y = 1; y < h; y++) a[b + y] = y < stoneTop ? B.Stone : under;
                     a[b + h] = top;
                     for (int y = h + 1; y <= World.Sea; y++) a[b + y] = B.Water;
+                    // grotten: tunnels waar twee ruisvelden allebei bijna nul zijn (alleen onder heuvels)
+                    if (c.Kind == ColumnKind.Nature && h > World.Sea + 5)
+                    {
+                        for (int y = World.Sea + 2; y <= h; y++)
+                        {
+                            float n1v = n1.Noise3(x / 24f, y / 13f, z / 24f), n2v = n2.Noise3(x / 24f + 71, y / 13f, z / 24f - 33);
+                            if (n1v * n1v + n2v * n2v < 0.011f) a[b + y] = y == h ? (Hash.H2(x, z, Seed) < 0.5f ? B.Air : top) : B.Air;
+                        }
+                    }
                     if (c.Kind == ColumnKind.Bridge)
                     {
                         int along = c.RoadNS ? z : x;
@@ -521,6 +569,12 @@ namespace Deadhaul.Core
                     var c = cols[px + pz * P];
                     if (c.Kind != ColumnKind.Sidewalk) continue;
                     int sx = Mod(x + 4, Street), sz = Mod(z + 4, Street);
+                    if (((sx == 9 || sx == 46) && Mod(z, 24) == 5 && sz >= 10 && sz < 46) || ((sz == 9 || sz == 46) && Mod(x, 24) == 5 && sx >= 10 && sx < 46))
+                    {
+                        float bh = Hash.H2(x, z, Seed ^ 0xb1b);
+                        if (bh < 0.5f) o.Set(x, c.H + 1, z, B.Bin);
+                        else if (bh < 0.56f) o.Set(x, c.H + 1, z, B.ExplosiveBarrel);
+                    }
                     if (((sx == 9 || sx == 46) && Mod(z, 24) == 12 && sz >= 10 && sz < 46) || ((sz == 9 || sz == 46) && Mod(x, 24) == 12 && sx >= 10 && sx < 46))
                     {
                         bool broken = Hash.H2(x, z, Seed ^ 0x1a) < 0.35f;
@@ -544,9 +598,10 @@ namespace Deadhaul.Core
                     int x = tx * TC + (int)(Hash.H2(tx, tz, Seed ^ 1) * (TC - 2)) + 1;
                     int z = tz * TC + (int)(Hash.H2(tx, tz, Seed ^ 2) * (TC - 2)) + 1;
                     float m = Moisture(x, z);
-                    float dens = m > 0.18f ? 0.75f : m < -0.22f ? 0.07f : 0.14f;
+                    float dens = m > 0.38f ? 0.35f : m > 0.18f ? 0.75f : m < -0.42f ? 0.012f : m < -0.22f ? 0.07f : 0.14f;
                     if (r > dens) continue;
                     var c = GetColumn(x, z);
+                    if (c.H > World.Sea + 34) continue;      // boven de boomgrens
                     bool allowed = c.Kind == ColumnKind.Nature;
                     if (c.Kind == ColumnKind.Lot) { var s = LotAtVoxel(x, z); allowed = s != null && s.Type == LotType.Park; }
                     if (!allowed || c.H <= World.Sea + 1 || c.H > World.Sea + 46) continue;
@@ -568,6 +623,24 @@ namespace Deadhaul.Core
                     int top = Math.Max(c.H, World.Sea);
                     for (int y = 1; y <= hh; y++) o.Set(x, top + y, z, B.RadCrystal);
                     if (hh > 2) { o.Set(x + 1, top + 1, z, B.RadCrystal); o.Set(x, top + 1, z - 1, B.RadCrystal); }
+                }
+
+            // 6b. grotvloeren: gloeizwammen en een enkele vergeten kist
+            for (int pz = 1; pz < P - 1; pz++)
+                for (int px = 1; px < P - 1; px++)
+                {
+                    var c = cols[px + pz * P];
+                    if (c.Kind != ColumnKind.Nature || c.H <= World.Sea + 5) continue;
+                    int x = o.Ox + px, z = o.Oz + pz;
+                    var a = o.Data;
+                    for (int y = World.Sea + 2; y < c.H - 2; y++)
+                    {
+                        int i = World.IdxPad(px, y, pz);
+                        if (a[i] != B.Air || !Blocks.Solid[a[i - 1]] || a[i + 1] != B.Air) continue;
+                        float hsh = Hash.H3(x, y, z, Seed ^ 0xca5);
+                        if (hsh < 0.035f) a[i] = B.Mushroom;
+                        else if (hsh > 0.9994f) a[i] = B.Crate;
+                    }
                 }
 
             // 7. planten en losse stenen
@@ -714,7 +787,7 @@ namespace Deadhaul.Core
                                 if ((lx == 3 || lx == 16) && (lz == 5 || lz == 18)) for (int y = 1; y < 7; y++) o.Set(x, bse + y, z, B.Concrete);
                                 if ((lx == 8 || lx == 11) && lz >= 9 && lz <= 14) { o.Set(x, bse + 1, z, B.Metal); o.Set(x, bse + 2, z, lz == 11 ? B.CarRed : B.Metal); }
                             }
-                            if (lx >= 24 && lx < 34 && lz >= 2 && lz < 6 && Hash.H2(lx, lz, Seed ^ s.Kx) < 0.25f) o.Set(x, bse + 1, z, B.Barrel);
+                            if (lx >= 24 && lx < 34 && lz >= 2 && lz < 6 && Hash.H2(lx, lz, Seed ^ s.Kx) < 0.25f) o.Set(x, bse + 1, z, Hash.H2(lz, lx, Seed) < 0.4f ? B.ExplosiveBarrel : B.Barrel);
                         }
                     break;
             }
