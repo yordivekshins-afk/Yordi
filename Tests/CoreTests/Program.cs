@@ -619,10 +619,96 @@ static class Program
             Check(Explosion.Damage(0.5f, 2.5f, 150) > 100 && Explosion.Damage(6f, 2.5f, 150) == 0, "schade neemt af met afstand");
         }
 
+        Console.WriteLine("Zee, eilanden, rivieren en bunkers");
+        {
+            Check(gen.OceanAt(0, 0) == 0 && gen.OceanAt(WorldGen.CityCell / 2, WorldGen.CityCell / 2) == 0, "de startstad ligt op het Vasteland");
+            int sea = 0, islands = 0, land = 0;
+            for (int z = -40000; z <= 40000; z += 400)
+                for (int x = -40000; x <= 40000; x += 400)
+                {
+                    var c = gen.GetColumn(x, z);
+                    float oc = gen.OceanAt(x, z);
+                    if (oc > 0.99f) { sea++; if (c.H > World.Sea) islands++; }
+                    else if (oc == 0) land++;
+                }
+            Check(sea > 4000 && land > 4000 && islands > 5, $"open zee ({sea}), Vasteland ({land}) en eilanden in zee ({islands}) binnen 40 km");
+            var (sx, sz) = gen.StilleEiland;
+            float sDist = MathF.Sqrt((float)sx * sx + (float)sz * sz) * World.VoxelSize;
+            Check(gen.GetColumn(sx, sz).H > World.Sea + 3 && gen.OceanAt(sx + 500, sz) > 0.99f, $"het Stille Eiland ligt ver op zee ({sDist / 1000f:0.0} km van de start)");
+            var ipad = gen.GenerateChunk(World.FloorDiv(sx, World.ChunkSize), World.FloorDiv(sz, World.ChunkSize));
+            int lamp = 0, bands = 0; foreach (var v in ipad) { if (v == B.Lamp) lamp++; if (v == B.CarRed) bands++; }
+            Check(lamp > 0 && bands > 20, $"met een rood-witte vuurtoren ({bands} rode blokken, {lamp} lamp)");
+
+            // rivieren: water in een dal op het land, en een brug waar de snelweg eroverheen gaat
+            int riverWater = 0, bridges = 0;
+            for (int z = -12000; z <= 12000; z += 6)
+                for (int x = -12000; x <= 12000; x += 600)
+                {
+                    if (!gen.IsRiver(x, z)) continue;
+                    var c = gen.GetColumn(x, z);
+                    if (c.H <= World.Sea) riverWater++;
+                }
+            for (int i = -8; i <= 8; i++)
+                for (int z = -12000; z <= 12000; z += 3)
+                {
+                    int x = i * WorldGen.CityCell + WorldGen.CityCell / 2;
+                    if (gen.IsRiver(x, z) && gen.GetColumn(x, z).Kind == ColumnKind.Bridge) bridges++;
+                }
+            Check(riverWater > 20, $"rivieren met water door het land ({riverWater} meetpunten)");
+            Check(bridges > 0, $"snelwegen steken rivieren over met een brug ({bridges} meetpunten)");
+
+            // zeewaardige boten aan de kust van de open zee
+            int kotters = 0, coastChunks = 0;
+            for (int dir = 0; dir < 16 && kotters == 0; dir++)
+            {
+                float a = dir / 16f * MathF.PI * 2;
+                for (float r = 8000; r < 40000 && coastChunks < 400; r += 64)
+                {
+                    int x = (int)(MathF.Cos(a) * r), z = (int)(MathF.Sin(a) * r);
+                    float oc = gen.OceanAt(x, z);
+                    if (oc < 0.3f || oc > 0.9f) continue;
+                    coastChunks++;
+                    foreach (var vs in gen.VehicleSpawns(World.FloorDiv(x, World.ChunkSize), World.FloorDiv(z, World.ChunkSize))) if (vs.Type == VehicleType.Kotter) kotters++;
+                }
+            }
+            Check(kotters > 0, $"aan de kust liggen zeewaardige vissersboten ({kotters} gevonden in {coastChunks} kustchunks)");
+
+            // bunkers
+            Bunker bunker = null;
+            for (int j = -6; j <= 6 && bunker == null; j++) for (int i = -6; i <= 6 && bunker == null; i++) bunker = gen.GetBunker(i, j);
+            Check(bunker != null, bunker != null ? $"verlaten bunker bij ({bunker.X * World.VoxelSize:0}, {bunker.Z * World.VoxelSize:0}) m, {bunker.StairLen * World.VoxelSize:0} m onder de grond" : "bunker gevonden");
+            if (bunker != null)
+            {
+                var bs = new VoxelStore();
+                for (int cz = World.FloorDiv(bunker.Z - 12, World.ChunkSize); cz <= World.FloorDiv(bunker.HallZ + 20, World.ChunkSize); cz++)
+                    for (int cx = World.FloorDiv(bunker.X - 12, World.ChunkSize); cx <= World.FloorDiv(bunker.X + 16, World.ChunkSize); cx++)
+                        bs.Add(cx, cz, gen.GenerateChunk(cx, cz));
+                int crates = 0, beds = 0;
+                for (int z = bunker.HallZ; z < bunker.HallZ + Bunker.HallD; z++)
+                    for (int x = bunker.X - 6; x < bunker.X + 11; x++)
+                    {
+                        byte v = bs.Get(x, bunker.Floor + 1, z);
+                        if (v == B.AmmoCrate) crates++; if (v == B.Bed) beds++;
+                    }
+                // kan de speler van de deur naar de zaal lopen? (vrije ruimte van 4 hoog op elke traptree)
+                bool walkable = true;
+                for (int k = 0; k <= bunker.StairLen; k++)
+                {
+                    int y = bunker.Top - k, z = bunker.Z + 1 + k;
+                    if (!Blocks.Solid[bs.Get(bunker.X + 2, y, z)]) walkable = false;
+                    for (int dy = 1; dy <= 4; dy++) if (Blocks.Solid[bs.Get(bunker.X + 2, y + dy, z)]) walkable = false;
+                }
+                for (int dy = 1; dy <= 4; dy++) if (Blocks.Solid[bs.Get(bunker.X + 2, bunker.Top + dy, bunker.Z)]) walkable = false;
+                Check(walkable, "de trap loopt vrij van de deur tot in de bunker");
+                Check(crates >= 6 && beds >= 2, $"bunker met munitiekisten ({crates}) en bedden ({beds})");
+                Check(gen.BunkerAt(bunker.X + 2, bunker.HallZ + 5) == bunker, "loot in de bunker is militair");
+            }
+        }
+
         if (args.Length > 0 && args[0] == "map")
         {
             string path = args.Length > 1 ? args[1] : "wereldkaart.png";
-            RenderMap(gen, path);
+            RenderMap(gen, path, args.Length > 2 ? int.Parse(args[2]) : 2);
             Console.WriteLine($"Kaart geschreven naar {path}");
         }
 
@@ -631,9 +717,9 @@ static class Program
     }
 
     // Bovenaanzicht van de wereld met reliëfschaduw, 1 pixel = 2 voxels (1 m)
-    static void RenderMap(WorldGen gen, string path)
+    static void RenderMap(WorldGen gen, string path, int step)
     {
-        const int size = 1400, step = 2;
+        const int size = 1400;
         int x0 = -size / 2 * step + WorldGen.CityCell / 2, z0 = -size / 2 * step + WorldGen.CityCell / 2;
         var hgt = new float[size * size];
         var col = new byte[size * size * 3];

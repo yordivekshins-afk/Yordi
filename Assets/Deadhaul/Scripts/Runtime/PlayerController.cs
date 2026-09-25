@@ -786,7 +786,7 @@ namespace Deadhaul
                 return;
             }
             var lot = Game.Gen.LotAtVoxel(x, z);
-            var loot = Loot.Roll(lot?.Type, container, x, y, z, Game.Gen.Seed, container == B.AmmoCrate || lot?.Type == LotType.Militair);
+            var loot = Loot.Roll(lot?.Type, container, x, y, z, Game.Gen.Seed, container == B.AmmoCrate || lot?.Type == LotType.Militair || Game.Gen.BunkerAt(x, z) != null);
             Store.MarkLooted(x, y, z);
             Game.Hud.OpenLoot(loot, Blocks.Info[container].Name);
         }

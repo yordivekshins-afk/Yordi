@@ -4,7 +4,7 @@ using System.IO;
 
 namespace Deadhaul.Core
 {
-    public enum VehicleType : byte { Auto, Pickup, Roeiboot, Motorboot }
+    public enum VehicleType : byte { Auto, Pickup, Roeiboot, Motorboot, Kotter }
 
     public enum VehiclePart : byte { Accu, Bougies, Banden, Brandstofpomp }
 
@@ -68,6 +68,7 @@ namespace Deadhaul.Core
             [VehicleType.Auto] = new VehicleDef { Type = VehicleType.Auto, Name = "Sedan", NeedsFuel = true, MaxSpeed = 32, Accel = 7, Turn = 1.9f, Length = 4.5f, Width = 2f, Height = 1.5f, FuelCapacity = 45, FuelPerKm = 0.09f, Seats = 4, Parts = new[] { VehiclePart.Accu, VehiclePart.Bougies, VehiclePart.Banden, VehiclePart.Brandstofpomp } },
             [VehicleType.Pickup] = new VehicleDef { Type = VehicleType.Pickup, Name = "Pick-up", NeedsFuel = true, MaxSpeed = 27, Accel = 6, Turn = 1.6f, Length = 5f, Width = 2.1f, Height = 1.8f, FuelCapacity = 70, FuelPerKm = 0.13f, Seats = 2, Parts = new[] { VehiclePart.Accu, VehiclePart.Bougies, VehiclePart.Banden, VehiclePart.Brandstofpomp } },
             [VehicleType.Roeiboot] = new VehicleDef { Type = VehicleType.Roeiboot, Name = "Roeiboot", Boat = true, MaxSpeed = 3.2f, Accel = 1.5f, Turn = 0.9f, Length = 3.5f, Width = 1.5f, Height = 0.7f, Seats = 2, Parts = new VehiclePart[0] },
+            [VehicleType.Kotter] = new VehicleDef { Type = VehicleType.Kotter, Name = "Vissersboot", Boat = true, NeedsFuel = true, MaxSpeed = 11, Accel = 1.6f, Turn = 0.5f, Length = 9f, Width = 3.2f, Height = 2.6f, FuelCapacity = 160, FuelPerKm = 0.35f, Seats = 4, Parts = new[] { VehiclePart.Accu, VehiclePart.Bougies, VehiclePart.Brandstofpomp } },
             [VehicleType.Motorboot] = new VehicleDef { Type = VehicleType.Motorboot, Name = "Motorboot", Boat = true, NeedsFuel = true, MaxSpeed = 16, Accel = 3.5f, Turn = 0.9f, Length = 5f, Width = 2f, Height = 1.1f, FuelCapacity = 40, FuelPerKm = 0.2f, Seats = 3, Parts = new[] { VehiclePart.Accu, VehiclePart.Bougies } },
         };
 

@@ -50,7 +50,7 @@ namespace Deadhaul.Core
     /// op een raster en de snelwegen ertussen ("de Haul"). Volledig deterministisch uit de seed,
     /// zodat een save alleen de verschillen hoeft te bewaren. Thread-safe.
     /// </summary>
-    public sealed class WorldGen
+    public sealed partial class WorldGen
     {
         public const int CityCell = 1344;  // stadscel in voxels (672 m); snelwegen lopen op de celgrenzen
         public const int Street = 48;      // bouwblok + straat (24 m)
@@ -72,6 +72,7 @@ namespace Deadhaul.Core
             n2 = new Simplex(seed + 101);
             n3 = new Simplex(seed + 202);
             n4 = new Simplex(seed + 303);
+            InitWater();
         }
 
         static float Smooth(float t) { t = Math.Clamp(t, 0f, 1f); return t * t * (3 - 2 * t); }
@@ -89,7 +90,7 @@ namespace Deadhaul.Core
                 float r = 1 - Math.Abs(n3.Noise2(x / 380f, z / 380f));
                 h += r * r * r * 34 * Math.Min(1, (cont - 0.25f) * 2.5f);
             }
-            return h;
+            return ApplySea(x, z, h);
         }
 
         public float RawHeight(int x, int z) =>
@@ -124,7 +125,7 @@ namespace Deadhaul.Core
             bool start = i == 0 && j == 0;
             if (!(h < 0.7f || start)) return null;
             float bh = BaseHeight(cx, cz);
-            if (!start && (bh <= World.Sea + 1 || bh >= World.Sea + 34)) return null;
+            if (!start && (bh <= World.Sea + 1 || bh >= World.Sea + 34 || OceanAt(cx, cz) > 0.02f)) return null;
             float size = start ? 0.72f : Hash.H2(i, j, Seed ^ 0xc17);
             float R = 110 + MathF.Pow(size, 1.5f) * 420;
             string name = SylA[(int)(Hash.H2(i, j, 7) * SylA.Length)] + SylB[(int)(Hash.H2(j, i, 9) * SylB.Length)];
@@ -194,7 +195,7 @@ namespace Deadhaul.Core
                 if (RadiationAt(cx, cz, out _) > 0) return NoSettlement;
                 if (CityAt(cx, cz, out _, out _) != null) return NoSettlement;
                 float bh = BaseHeight(cx, cz);
-                if (bh < World.Sea + 2 || bh > World.Sea + 32) return NoSettlement;
+                if (bh < World.Sea + 2 || bh > World.Sea + 32 || OceanAt(cx, cz) > 0.02f) return NoSettlement;
                 return Settlement.Layout(i, j, x0, z0, (int)MathF.Round(Math.Max(World.Sea + 3, bh)), Seed);
             });
             return ReferenceEquals(st, NoSettlement) ? null : st;
@@ -238,10 +239,12 @@ namespace Deadhaul.Core
                 float dune = MathF.Abs(n2.Noise2(x / 26f + n4.Noise2(x / 90f, z / 90f) * 0.8f, z / 70f));
                 h += (1 - dune) * 5f * Math.Min(1, (-0.42f - mo) * 8f);
             }
+            h = ApplyRiver(x, z, h);
             var col = new Column { Kind = ColumnKind.Nature, RoadH = -1, CityD = 1e9f };
             var city = CityAt(x, z, out float cd, out float cf);
             if (city != null) { h += (city.Base - h) * cf; col.City = city; col.CityD = cd; }
             int rd = RoadAt(x, z, out bool ns, out int line);
+            if (rd <= HW + 10 && OceanAt(x, z) > 0.45f) rd = 999;          // de Haul eindigt aan de kust
             col.RoadD = rd; col.RoadNS = ns;
             if (rd <= HW + 10)
             {
@@ -561,6 +564,10 @@ namespace Deadhaul.Core
                 }
             }
 
+            // 2c. het Stille Eiland en bunkers
+            WriteStille(ref o);
+            WriteBunkers(ref o);
+
             // 3. straatlantaarns
             for (int pz = 0; pz < P; pz++)
                 for (int px = 0; px < P; px++)
@@ -607,6 +614,7 @@ namespace Deadhaul.Core
                     if (!allowed || c.H <= World.Sea + 1 || c.H > World.Sea + 46) continue;
                     if (c.Rad > 0.6f) continue;
                     if (c.Kind == ColumnKind.Nature && c.RoadD <= HW + 3) continue;
+                    if (BunkerAt(x, z) != null) continue;
                     int kind = m < -0.22f || c.Rad > 0.12f ? 0 : (c.H > World.Sea + 26 || Hash.H2(tx, tz, Seed ^ 5) < 0.3f) ? 1 : 2;
                     WriteTree(kind, x, c.H + 1, z, Hash.H2(tz, tx, Seed ^ 6), ref o);
                 }
@@ -986,7 +994,9 @@ namespace Deadhaul.Core
                     }
                     if (landDir < 0) continue;
                     float yaw = landDir switch { 0 => 270, 1 => 90, 2 => 180, _ => 0 };     // met de neus van het land af
-                    var type = Hash.H2(z, x, Seed ^ 0xb0d) < 0.3f ? VehicleType.Motorboot : VehicleType.Roeiboot;
+                    float bt = Hash.H2(z, x, Seed ^ 0xb0d);
+                    // aan de open zee liggen soms zeewaardige vissersboten
+                    var type = OceanAt(x, z) > 0.3f && bt < 0.55f ? VehicleType.Kotter : bt < 0.3f ? VehicleType.Motorboot : VehicleType.Roeiboot;
                     list.Add(new VehicleSpawn { Key = VoxelStore.VoxelKey(x, World.Sea, z) + 2, Type = type, Pos = new V3((x + 0.5f) * vs, World.SeaLevelMeters - 0.15f, (z + 0.5f) * vs), Yaw = yaw, Paint = B.CarWhite, Seed = x * 3 + z });
                 }
             return list;

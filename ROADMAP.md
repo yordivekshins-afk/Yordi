@@ -70,7 +70,11 @@ Werkafspraak uit het dossier blijft: **elke mijlpaal is speelbaar**, en er wordt
 - ✅ Onderdelen vind je in garages, benzinestations en door autowrakken te slopen
 - ✅ **Roei- en motorboten** langs de oevers; varen over meren en kratermeren
 - ✅ **Vissen** met hengel en aas (wormen uit de aarde): baars, karper, snoek — en gloeivis in stralingswater; bakken bij het vuur
-- Nog te doen: brandstof stoken en stroom opwekken (dossier S-06), zeewaardige schepen, eilanden en het Stille Eiland, rivieren
+- ✅ **Het Vasteland** (±40 km) met daarbuiten open zee en de **Archipel**; de Haul eindigt aan de kust
+- ✅ **Rivieren** die door dalen en kloven slingeren tussen de meren; snelwegen gaan er met bruggen overheen
+- ✅ **Het Stille Eiland**: onbewoond, niet op de kaart, ver op zee — met vuurtoren, vissershut en steiger
+- ✅ **Vissersboten** (zeewaardig, 160 l tank) aan de kust van de open zee
+- Nog te doen: brandstof stoken en stroom opwekken (dossier S-06), Overwal, wrakken om naar te duiken
 
 ## ✅ M6 – Wereld verdiepen
 
@@ -80,7 +84,8 @@ Werkafspraak uit het dossier blijft: **elke mijlpaal is speelbaar**, en er wordt
 - ✅ Meer loot: kasten en koelkasten in huizen en flats, vuilnisbakken op straat
 - ✅ **Sloopbare gebouwen**: handgranaten en explosieve vaten (ook door erop te schieten) slaan muren weg — hout sneller dan beton —
   met puin, vuurbal, rook, kettingreacties, schade en cameraschudden
-- Nog te doen: metro's en bunkers, instortende constructies, verdronken kustvlakte
+- ✅ **Bunkers**: betonnen hutjes in de wildernis met een trap naar een ondergrondse zaal (kooien, voorraadrekken, wapenkamer met munitiekisten, militaire loot)
+- Nog te doen: metro's, instortende constructies
 
 ## ✅ M8 – Weer en seizoenen
 

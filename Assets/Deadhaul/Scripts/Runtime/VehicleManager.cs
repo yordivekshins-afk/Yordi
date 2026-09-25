@@ -85,7 +85,7 @@ namespace Deadhaul
                     if (running && !view.Engine.isPlaying) view.Engine.Play();
                     if (!running && view.Engine.isPlaying) view.Engine.Stop();
                     view.Engine.pitch = 0.7f + Mathf.Abs(v.Speed) / v.Def.MaxSpeed * 1.4f;
-                    view.Engine.volume = v.Def.Type == VehicleType.Roeiboot ? 0 : 0.55f;
+                    view.Engine.volume = v.Def.Type == VehicleType.Roeiboot ? 0 : v.Def.Type == VehicleType.Kotter ? 0.7f : 0.55f;
                 }
             }
         }
@@ -261,6 +261,37 @@ namespace Deadhaul
                         }
                     }
                     break;
+                case VehicleType.Kotter:
+                {
+                    // zeewaardige vissersboot: hoge boeg, stuurhut, mast met giek
+                    for (int z = 0; z < sz; z++)
+                    {
+                        float t = z > sz * 0.6f ? (z - sz * 0.6f) / (sz * 0.4f) : 0;
+                        int half = Mathf.Max(1, Mathf.RoundToInt((sx / 2f) * (1 - t * t * 0.9f)));
+                        int c0 = sx / 2 - half, c1 = sx / 2 + half - 1;
+                        int rail = 2 + (z > sz * 0.75f ? 1 : 0);
+                        for (int x = c0; x <= c1; x++)
+                        {
+                            Set(x, 0, z, B.CarBlue);
+                            Set(x, 1, z, B.Planks);
+                            bool edge = x == c0 || x == c1 || z == 0 || z == sz - 1;
+                            if (edge) for (int y = 1; y <= rail; y++) Set(x, y, z, y == rail ? B.CarWhite : B.CarBlue);
+                        }
+                    }
+                    int h0 = (int)(sz * 0.18f), h1 = (int)(sz * 0.45f);
+                    for (int z = h0; z <= h1; z++)
+                        for (int x = 2; x < sx - 2; x++)
+                            for (int y = 2; y <= 6; y++)
+                            {
+                                bool wall = x == 2 || x == sx - 3 || z == h0 || z == h1;
+                                if (y == 6) Set(x, y, z, B.CarWhite);
+                                else if (wall) Set(x, y, z, y >= 4 && !(z == h0 && x == sx / 2) ? B.Glass : B.CarWhite);
+                            }
+                    for (int y = 2; y < sy; y++) Set(sx / 2, y, (int)(sz * 0.62f), B.Steel);                     // mast
+                    for (int z = (int)(sz * 0.62f); z < sz - 2; z++) Set(sx / 2, sy - 3, z, B.Steel);               // giek
+                    Set(sx / 2, sy - 1, (int)(sz * 0.62f), B.Lamp);
+                    break;
+                }
                 default: // motorboot
                     for (int z = 0; z < sz; z++)
                     {
