@@ -28,7 +28,12 @@ namespace Deadhaul
         static readonly Color Panel = new Color(0.07f, 0.075f, 0.06f, 0.86f), Line = new Color(0.3f, 0.3f, 0.24f, 1f);
 
         public bool LootOpen => loot != null;
-        public bool CapturesInput => InventoryOpen || LootOpen || Paused || game.Stats.Dead || !game.Ready;
+        public bool TradeOpen => trade != null;
+        public bool CapturesInput => InventoryOpen || LootOpen || TradeOpen || Paused || game.Stats.Dead || !game.Ready;
+        Settlement trade; string tradeName;
+        Vector2 tradeScrollA, tradeScrollB;
+
+        public void OpenTrade(Settlement s, string trader) { trade = s; tradeName = trader; InventoryOpen = false; loot = null; }
 
         public void HitMarker(bool kill, bool head) { hitTime = Time.time; hitKill = kill; hitHead = head; }
 
@@ -57,6 +62,7 @@ namespace Deadhaul
             if (kb.escapeKey.wasPressedThisFrame)
             {
                 if (LootOpen) loot = null;
+                else if (TradeOpen) trade = null;
                 else if (InventoryOpen) InventoryOpen = false;
                 else if (!game.Stats.Dead) Paused = !Paused;
             }
@@ -137,6 +143,7 @@ namespace Deadhaul
             if (ShowHelp && !CapturesInput) Help();
             if (InventoryOpen) InventoryWindow(W, H);
             if (LootOpen) LootWindow(W, H);
+            if (TradeOpen) TradeWindow(W, H);
             if (Paused) PauseMenu(W, H);
 
             // pijn en kou aan de randen van het scherm
@@ -521,6 +528,86 @@ namespace Deadhaul
                 game.Player.RefreshTool();
             }
             if (GUI.Button(new Rect(r.xMax - 118, r.yMax - 48, 100, 32), "Sluiten", button) || loot.Count == 0) loot = null;
+        }
+
+        void TradeWindow(float W, float H)
+        {
+            var inv = game.Inventory;
+            var stock = trade.TraderStock;
+            var r = new Rect(W / 2 - 560, H / 2 - 300, 1120, 600);
+            Frame(r);
+            int caps = inv.Count("doppen");
+            GUI.Label(new Rect(r.x + 18, r.y + 12, 700, 30), $"{tradeName} — markt van {trade.Name}", title);
+            GUI.Label(new Rect(r.xMax - 260, r.y + 16, 240, 24), $"Jouw doppen: <b>{caps}</b>", new GUIStyle(label) { alignment = TextAnchor.UpperRight });
+
+            // ------------------------------------------------ kopen
+            GUI.Label(new Rect(r.x + 18, r.y + 50, 400, 22), "Te koop", label);
+            var viewA = new Rect(r.x + 18, r.y + 76, 520, 460);
+            float rowH = 34;
+            tradeScrollA = GUI.BeginScrollView(viewA, tradeScrollA, new Rect(0, 0, 500, stock.Count * rowH));
+            for (int i = 0; i < stock.Count; i++)
+            {
+                var st = stock[i];
+                var d = st.Def;
+                int price = Items.ValueOf(d);
+                float y = i * rowH;
+                Fill(new Rect(0, y, 500, rowH - 4), new Color(0.1f, 0.1f, 0.08f, 0.8f));
+                Fill(new Rect(6, y + 6, 18, 18), IconColor(d));
+                GUI.Label(new Rect(32, y + 5, 300, 22), $"{d.Name}{(st.Count > 1 ? $"  ×{st.Count}" : "")}{(st.Mods != null ? "  +" : "")}", label);
+                GUI.Label(new Rect(330, y + 5, 70, 22), $"{price} d", new GUIStyle(label) { alignment = TextAnchor.UpperRight, normal = { textColor = Accent } });
+                GUI.enabled = caps >= price;
+                if (GUI.Button(new Rect(410, y + 3, 84, 24), "Koop", button))
+                {
+                    var one = st; one.Count = 1;
+                    bool ok = d.MaxStack == 1 ? inv.AddStack(one) : inv.Add(st.Id, 1) == 0;
+                    if (ok)
+                    {
+                        inv.Remove("doppen", price);
+                        st.Count--;
+                        if (st.Count <= 0) { stock.RemoveAt(i); i--; } else stock[i] = st;
+                        Sfx.Instance.Play2D("droog", 0.4f, 0.8f);
+                        game.Player.RefreshTool();
+                    }
+                    else Message("Je rugzak zit vol.");
+                }
+                GUI.enabled = true;
+            }
+            GUI.EndScrollView();
+
+            // ------------------------------------------------ verkopen
+            GUI.Label(new Rect(r.x + 570, r.y + 50, 400, 22), "Verkopen (halve prijs)", label);
+            var viewB = new Rect(r.x + 570, r.y + 76, 530, 460);
+            var mine = new List<int>();
+            for (int i = 0; i < inv.Slots.Length; i++) if (!inv.Slots[i].Empty && inv.Slots[i].Id != "doppen") mine.Add(i);
+            tradeScrollB = GUI.BeginScrollView(viewB, tradeScrollB, new Rect(0, 0, 510, mine.Count * rowH));
+            for (int k = 0; k < mine.Count; k++)
+            {
+                int i = mine[k];
+                var st = inv.Slots[i];
+                var d = st.Def;
+                int price = Mathf.Max(1, Items.ValueOf(d) / 2);
+                float y = k * rowH;
+                Fill(new Rect(0, y, 510, rowH - 4), new Color(0.1f, 0.1f, 0.08f, 0.8f));
+                Fill(new Rect(6, y + 6, 18, 18), IconColor(d));
+                GUI.Label(new Rect(32, y + 5, 300, 22), $"{d.Name}{(st.Count > 1 ? $"  ×{st.Count}" : "")}", label);
+                GUI.Label(new Rect(330, y + 5, 70, 22), $"{price} d", new GUIStyle(label) { alignment = TextAnchor.UpperRight, normal = { textColor = Accent } });
+                if (GUI.Button(new Rect(410, y + 3, 94, 24), "Verkoop", button))
+                {
+                    var one = st; one.Count = 1;
+                    inv.TakeFromSlot(i);
+                    if (d.MaxStack == 1) stock.Add(one);
+                    else
+                    {
+                        int idx = stock.FindIndex(x => x.Id == st.Id);
+                        if (idx >= 0) { var x = stock[idx]; x.Count++; stock[idx] = x; } else stock.Add(new Stack(st.Id, 1));
+                    }
+                    inv.Add("doppen", price);
+                    Sfx.Instance.Play2D("droog", 0.4f, 1.2f);
+                    game.Player.RefreshTool();
+                }
+            }
+            GUI.EndScrollView();
+            if (GUI.Button(new Rect(r.xMax - 130, r.yMax - 46, 110, 32), "Sluiten", button)) trade = null;
         }
 
         /// <summary>Stopt een stapel in de rugzak, met behoud van magazijn en attachments.</summary>

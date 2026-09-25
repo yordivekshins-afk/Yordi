@@ -36,7 +36,7 @@ namespace UnityEngine
         public Vector3 normalized => this; public static Vector3 operator -(Vector3 a) => a; public static Vector3 operator /(Vector3 a, float s) => a;
         public static Vector3 right, left, down;
     }
-    public struct Quaternion { public static Quaternion Euler(float x, float y, float z) => default; public static Quaternion LookRotation(Vector3 f) => default;
+    public struct Quaternion { public static Quaternion identity; public static Quaternion Euler(float x, float y, float z) => default; public static Quaternion LookRotation(Vector3 f) => default;
         public static Quaternion Slerp(Quaternion a, Quaternion b, float t) => a; public static Vector3 operator *(Quaternion q, Vector3 v) => v; }
     public struct Color { public float r, g, b, a; public Color(float r, float g, float b, float a = 1) { this.r = r; this.g = g; this.b = b; this.a = a; }
         public static Color white, black, grey; public Color linear => this; public static Color Lerp(Color a, Color b, float t) => a; public static Color operator *(Color c, float f) => c; }
@@ -102,7 +102,7 @@ namespace UnityEngine
     {
         public static GUISkin skin; public static Color color; public static bool enabled; public static Matrix4x4 matrix;
         public static void DrawTexture(Rect r, Texture t) { } public static void Label(Rect r, string s, GUIStyle st) { }
-        public static bool Button(Rect r, string s, GUIStyle st) => false; public static float HorizontalSlider(Rect r, float v, float a, float b) => v;
+        public static bool Button(Rect r, string s, GUIStyle st) => false; public static Vector2 BeginScrollView(Rect p, Vector2 s, Rect v) => s; public static void EndScrollView() { } public static float HorizontalSlider(Rect r, float v, float a, float b) => v;
     }
     public enum EventType { MouseDown }
     public class Event { public static Event current; public EventType type; public Vector2 mousePosition; public int button; public void Use() { } }

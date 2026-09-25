@@ -53,10 +53,13 @@ namespace Deadhaul
             };
         }
 
-        Transform hips, torso, head, armL, armR, legL, legR, tool;
-        float phase, swing, crouch, speedSmooth, deathT;
+        Transform hips, torso, head, armL, armR, legL, legR, tool, crate;
+        float phase, swing, crouch, speedSmooth, deathT, lieT, workT;
         bool dead;
         public Transform Hand => armR;
+
+        // houdingen voor bewoners
+        public bool Sleeping, Working, Sitting, Carrying;
 
         public static VoxelCharacter Build(Transform parent, Look look)
         {
@@ -119,6 +122,8 @@ namespace Deadhaul
 
             if (look.VestStyle >= 0) Vest(look);
             if (look.BackStyle >= 0) Back(look);
+            crate = Part("Kist", torso, new Vector3(0, 4 * U, 5 * U), 7, 5, 5, 3.5f, 0, 0, (x, y, z) => y == 4 || x == 0 || x == 6 ? B.Wood : B.Planks);
+            crate.gameObject.SetActive(false);
         }
 
         void HeadGear(Look l)
@@ -285,17 +290,35 @@ namespace Deadhaul
                 transform.localRotation = Quaternion.Euler(-88 * deathT * deathT, 0, 0);
                 return;
             }
+            // liggen in bed
+            lieT = Mathf.MoveTowards(lieT, Sleeping ? 1 : 0, dt * 1.5f);
+            transform.localRotation = Quaternion.Euler(-88 * lieT, 0, 0);
+            transform.localPosition = new Vector3(0, lieT * 0.5f, lieT * -0.9f);
+            if (crate) crate.gameObject.SetActive(Carrying && !Sleeping);
             speedSmooth = Mathf.Lerp(speedSmooth, speed, 1 - Mathf.Exp(-dt * 10));
             phase += dt * Mathf.Lerp(4f, 9.5f, Mathf.InverseLerp(1.5f, 7f, speedSmooth)) * (speedSmooth > 0.2f ? 1 : 0);
             swing = Mathf.Lerp(swing, Mathf.Clamp01(speedSmooth / 4f), 1 - Mathf.Exp(-dt * 8));
-            crouch = Mathf.Lerp(crouch, crouching ? 1 : 0, 1 - Mathf.Exp(-dt * 10));
+            crouch = Mathf.Lerp(crouch, crouching || (Working && !Sitting) ? 1 : Sitting ? 1.9f : 0, 1 - Mathf.Exp(-dt * 10));
+            workT += dt * (Working ? 6f : 0f);
             float s = Mathf.Sin(phase) * 38f * swing;
             float air = grounded ? 0 : 1;
             legL.localRotation = Quaternion.Euler(s - crouch * 35 - air * 20, 0, 0);
             legR.localRotation = Quaternion.Euler(-s - crouch * 35 + air * 25, 0, 0);
             hips.localPosition = new Vector3(0, (13 - crouch * 2.5f) * U + Mathf.Abs(Mathf.Cos(phase)) * 0.03f * swing, 0);
             torso.localRotation = Quaternion.Euler(crouch * 18 + swing * 6, 0, 0);
-            if (aiming)
+            if (Sleeping) { armL.localRotation = Quaternion.identity; armR.localRotation = Quaternion.identity; legL.localRotation = Quaternion.identity; legR.localRotation = Quaternion.identity; return; }
+            if (Carrying)
+            {
+                armR.localRotation = Quaternion.Euler(-70, 0, 0);
+                armL.localRotation = Quaternion.Euler(-70, 0, 0);
+            }
+            else if (Working)
+            {
+                float w = Mathf.Sin(workT) * 25f;
+                armR.localRotation = Quaternion.Euler(-45 + w, 0, 0);
+                armL.localRotation = Quaternion.Euler(-40 - w, 0, 0);
+            }
+            else if (aiming)
             {
                 armR.localRotation = Quaternion.Euler(-90 + pitch, 0, 0);
                 armL.localRotation = Quaternion.Euler(-80 + pitch, 25, 0);
@@ -306,7 +329,14 @@ namespace Deadhaul
                 if (attack > 0) armR.localRotation = Quaternion.Euler(Mathf.Lerp(40, -120, attack), 0, 0);
                 else armR.localRotation = Quaternion.Euler(s * 0.8f - (tool ? 15 : 0), 0, 4);
             }
-            head.localRotation = Quaternion.Euler(-crouch * 10 + (aiming ? pitch * 0.5f : 0), 0, 0);
+            head.localRotation = Quaternion.Euler(-crouch * 10 + (aiming ? pitch * 0.5f : 0) + (Working ? 20 : 0), 0, 0);
+            if (Sitting)
+            {
+                legL.localRotation = Quaternion.Euler(-85, 0, 0);
+                legR.localRotation = Quaternion.Euler(-85, 0, 0);
+                hips.localPosition = new Vector3(0, 7 * U, 0);
+                torso.localRotation = Quaternion.Euler(5, 0, 0);
+            }
         }
 
         public void Die() { dead = true; }

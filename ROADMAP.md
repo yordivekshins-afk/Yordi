@@ -46,12 +46,17 @@ Werkafspraak uit het dossier blijft: **elke mijlpaal is speelbaar**, en er wordt
 - ✅ Lijken doorzoeken, rauw vlees bakken bij het vuur, vacht voor kleding
 - Nog te doen: dekking zoeken, onderhandelen, sloopbare gebouwen met instorting en explosies
 
-## M4 – Levende steden
+## ✅ M4 – Levende nederzettingen
 
-- Nederzettingen met **NPC's die realtime hun werk doen**: boeren, sjouwers, bewakers, handelaars, koks, mechaniekers
-- **Landbouw** met meerdere gewassen (aardappel, graan, maïs, kool, wortel, tomaat, …), zaaien, water, oogsten, seizoenen
-- NPC's eten, slapen, verplaatsen voorraden, reageren op aanvallen; rekruteren voor je eigen nederzetting
-- Handel en economie per stad (dossier S-07)
+- ✅ Ommuurde nederzettingen van overlevers langs de snelweg (palissade, poort, wachttorens, huisjes met bedden,
+  voorraadschuur, marktkraam, waterput, kookvuur met banken), elk met een eigen naam
+- ✅ **Bewoners die realtime hun werk doen**: boeren oogsten en herplanten, de sjouwer brengt voorraad van de schuur naar de markt,
+  bewakers lopen rondes (dag- en nachtdienst), de kok kookt, de handelaar staat achter zijn kraam
+- ✅ Dagritme: samen ontbijten, lunchen en avondeten bij het vuur, 's avonds praten, 's nachts slapen in hun eigen bed
+- ✅ **Landbouw** met zeven gewassen (aardappel, graan, maïs, kool, wortel, tomaat, pompoen) die echt groeien; zelf zaaien en oogsten
+- ✅ Handel met doppen, praten met bewoners; val je iemand aan of steel je van de akker, dan keert het dorp zich tegen je
+- ✅ Nieuwe recepten: brood, groentesoep, gepofte aardappel
+- Nog te doen: rekruteren en je eigen nederzetting bouwen, seizoenen, economie tussen steden, mechaniekers
 
 ## M5 – Voertuigen en reizen
 

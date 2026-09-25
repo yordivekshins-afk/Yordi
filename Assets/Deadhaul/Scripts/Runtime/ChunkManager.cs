@@ -47,6 +47,8 @@ namespace Deadhaul
 
         /// <summary>Wordt aangeroepen als een chunk (opnieuw) in de wereld staat.</summary>
         public event Action<int, int> ChunkLoaded;
+        /// <summary>Wordt aangeroepen na elke blokwijziging.</summary>
+        public event Action<int, int, int, byte> BlockChanged;
 
         public void Init(WorldGen gen, VoxelStore store)
         {
@@ -204,6 +206,7 @@ namespace Deadhaul
         public void SetBlock(int x, int y, int z, byte b)
         {
             foreach (var (cx, cz) in Store.Set(x, y, z, b)) Remesh(cx, cz);
+            BlockChanged?.Invoke(x, y, z, b);
         }
 
         public void Remesh(int cx, int cz)

@@ -63,6 +63,7 @@ namespace Deadhaul
             new GameObject("Geluid").AddComponent<Sfx>();
             Combat = new GameObject("Gevechten").AddComponent<CombatSystem>();
             Combat.Init(this);
+            new GameObject("Akkers").AddComponent<Farms>().Init(Chunks);
 
             var cam = CreateCamera();
             Player = new GameObject("Speler").AddComponent<PlayerController>();
@@ -194,9 +195,13 @@ namespace Deadhaul
             int vx = Mathf.FloorToInt(Player.Pos.X / World.VoxelSize), vz = Mathf.FloorToInt(Player.Pos.Z / World.VoxelSize);
             var city = Gen.CityAt(vx, vz, out float d, out _);
             string name = city != null && d < city.R ? city.Name : null;
+            string sub = city != null ? (city.Kind == "capital" ? "hoofdstad" : city.Kind) : null;
+            var settle = Gen.SettlementNear(vx, vz, out float sd);
+            if (settle != null && sd <= 0) { name = settle.Name; sub = "nederzetting van overlevers"; }
+            if (Gen.RadiationAt(vx, vz, out float rel) > 0.25f && name == null) { name = "Inslagkrater"; sub = "hoge straling"; }
             if (name != lastCity)
             {
-                if (name != null) Hud.Banner(name, city.Kind == "capital" ? "hoofdstad" : city.Kind);
+                if (name != null) Hud.Banner(name, sub);
                 lastCity = name;
             }
 

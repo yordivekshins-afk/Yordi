@@ -443,6 +443,7 @@ namespace Deadhaul
             Sfx.Instance.Play(Target.Block == B.Glass ? "glas" : "slag", p, 0.6f, 0.8f);
             Game.Combat.Noise.Emit(new V3(p.x, p.y, p.z), 14, Game.Combat.PlayerActor.Id);
             if ((info.Flags & BlockFlags.Container) != 0) GiveLoot(x, y, z, Target.Block, true);
+            if (B.IsPlant(Target.Block)) { Harvest(x, y, z, Target.Block); return; }
             Chunks.SetBlock(x, y, z, B.Air);
             Game.Campfires.OnBlockChanged(x, y, z, B.Air);
             if (info.Drop != null)
@@ -462,7 +463,17 @@ namespace Deadhaul
             if (def == null || def.Kind != ItemKind.Block || def.PlaceBlock == 0) return;
             int x = Target.X + Target.Nx, y = Target.Y + Target.Ny, z = Target.Z + Target.Nz;
             byte cur = Store.Get(x, y, z);
-            if (cur != B.Air && cur != B.Water && cur != B.Crop) return;
+            if (B.IsSeedling(def.PlaceBlock))
+            {
+                // zaaien: bovenop akkergrond, gras of aarde
+                if (Target.Ny != 1 || !Farming.CanPlantOn(Target.Block, cur)) { Game.Hud.Message("Zaai op akkergrond, gras of aarde."); return; }
+                if (Target.Block != B.Farmland) Chunks.SetBlock(Target.X, Target.Y, Target.Z, B.Farmland);
+                Chunks.SetBlock(x, y, z, def.PlaceBlock);
+                Inv.TakeFromSlot(Selected);
+                attackAnim = 0.6f;
+                return;
+            }
+            if (cur != B.Air && cur != B.Water && !B.IsPlant(cur)) return;
             float vs = World.VoxelSize;
             bool overlap = x * vs < Pos.X + HalfWidth && (x + 1) * vs > Pos.X - HalfWidth &&
                            z * vs < Pos.Z + HalfWidth && (z + 1) * vs > Pos.Z - HalfWidth &&
@@ -478,6 +489,7 @@ namespace Deadhaul
         void Interact()
         {
             if (Game.Combat.TryLootCorpse(Cam.transform.position, Cam.transform.forward)) return;
+            if (Game.Combat.TryTalk(Cam.transform.position, Cam.transform.forward)) return;
             if (InWater && (!Target.Hit || Target.Distance > 2f))
             {
                 Stats.Water = Mathf.Min(100, Stats.Water + 15);
@@ -488,14 +500,29 @@ namespace Deadhaul
             }
             if (!Target.Hit) return;
             byte b = Target.Block;
-            if (b == B.Crop)
-            {
-                Chunks.SetBlock(Target.X, Target.Y, Target.Z, B.Air);
-                Inv.Add("groente", 1);
-                Game.Hud.Message("+1 Wilde groente");
-                return;
-            }
+            if (B.IsPlant(b)) { Harvest(Target.X, Target.Y, Target.Z, b); return; }
             if (Blocks.Is(b, BlockFlags.Container)) GiveLoot(Target.X, Target.Y, Target.Z, b, false);
+        }
+
+        /// <summary>Oogsten: rijpe gewassen geven eten en soms zaad; zaailingen geven hun zaad terug.</summary>
+        void Harvest(int x, int y, int z, byte b)
+        {
+            var p = new Vector3((x + 0.5f) * World.VoxelSize, (y + 0.3f) * World.VoxelSize, (z + 0.5f) * World.VoxelSize);
+            Chunks.SetBlock(x, y, z, B.Air);
+            Fx.Instance.Burst(p, Vector3.up, B.Potato, 6, 1.5f, 0.04f, 0.8f);
+            if (b == B.Crop) { Inv.Add("groente", 1); Game.Hud.Message("+1 Wilde groente"); return; }
+            int type = B.CropIndex(b);
+            string crop = B.CropItems[type];
+            if (B.IsSeedling(b)) { Inv.Add("zaad_" + crop, 1); Game.Hud.Message($"+1 {Items.Get("zaad_" + crop).Name}"); }
+            else
+            {
+                int n = 1 + rng.Next(3), seeds = rng.NextDouble() < 0.6 ? 1 + rng.Next(2) : 0;
+                Inv.Add(crop, n);
+                if (seeds > 0) Inv.Add("zaad_" + crop, seeds);
+                Game.Hud.Message($"+{n} {Items.Get(crop).Name}" + (seeds > 0 ? $", +{seeds} zaad" : ""));
+            }
+            var st = Game.Gen.SettlementNear(x, z, out float d);
+            if (st != null && d <= 0) Game.Combat.ReportTheft(st, new V3(p.x, p.y, p.z));
         }
 
         void GiveLoot(int x, int y, int z, byte container, bool broken)
