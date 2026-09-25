@@ -6,7 +6,7 @@ using System.Collections.Generic;
 namespace UnityEngine
 {
     public class Object { public string name; public static void Destroy(Object o) { } public static void DestroyImmediate(Object o) { } public static implicit operator bool(Object o) => o != null; }
-    public class Component : Object { public GameObject gameObject; public Transform transform; public T GetComponent<T>() => default; public T[] GetComponentsInChildren<T>() => default; }
+    public class Component : Object { public GameObject gameObject; public Transform transform; public T GetComponent<T>() => default; public T[] GetComponentsInChildren<T>() => default; public T AddComponent<T>() where T : Component => default; }
     public class Behaviour : Component { public bool enabled; }
     public class MonoBehaviour : Behaviour { }
     public class ScriptableObject : Object { public static T CreateInstance<T>() where T : ScriptableObject => default; }
@@ -20,8 +20,8 @@ namespace UnityEngine
     public enum PrimitiveType { Sphere, Capsule, Cylinder, Cube, Plane, Quad }
     public class Transform : Component
     {
-        public Vector3 position, localPosition, localScale, forward; public Quaternion rotation, localRotation;
-        public void SetParent(Transform p, bool w) { }
+        public Vector3 position, localPosition, localScale, forward, right, up; public Quaternion rotation, localRotation;
+        public void SetParent(Transform p, bool w) { } public int childCount; public Transform GetChild(int i) => null;
     }
     public struct Vector2 { public float x, y; public Vector2(float a, float b) { x = a; y = b; } public static Vector2 zero; public float magnitude => 0;
         public static Vector2 ClampMagnitude(Vector2 v, float m) => v; public static Vector2 operator *(Vector2 a, float s) => a; }
@@ -32,7 +32,9 @@ namespace UnityEngine
         public static Vector3 zero, one, up, back, forward; public float sqrMagnitude => 0; public float magnitude => 0;
         public static Vector3 operator +(Vector3 a, Vector3 b) => a; public static Vector3 operator -(Vector3 a, Vector3 b) => a;
         public static Vector3 operator *(Vector3 a, float s) => a; public static Vector3 operator *(float s, Vector3 a) => a;
-        public static float Distance(Vector3 a, Vector3 b) => 0;
+        public static float Distance(Vector3 a, Vector3 b) => 0; public static float Dot(Vector3 a, Vector3 b) => 0; public static Vector3 Lerp(Vector3 a, Vector3 b, float t) => a;
+        public Vector3 normalized => this; public static Vector3 operator -(Vector3 a) => a; public static Vector3 operator /(Vector3 a, float s) => a;
+        public static Vector3 right, left, down;
     }
     public struct Quaternion { public static Quaternion Euler(float x, float y, float z) => default; public static Quaternion LookRotation(Vector3 f) => default;
         public static Quaternion Slerp(Quaternion a, Quaternion b, float t) => a; public static Vector3 operator *(Quaternion q, Vector3 v) => v; }
@@ -46,7 +48,7 @@ namespace UnityEngine
         public static float Clamp(float v, float a, float b) => v; public static float Clamp01(float v) => v; public static float Lerp(float a, float b, float t) => a;
         public static float InverseLerp(float a, float b, float t) => a; public static float Sin(float f) => f; public static float Cos(float f) => f; public static float Abs(float f) => f; public static int Abs(int f) => f;
         public static float Exp(float f) => f; public static float Repeat(float t, float l) => t; public static int RoundToInt(float f) => 0; public static int FloorToInt(float f) => 0;
-        public static float PerlinNoise(float x, float y) => 0;
+        public static float PerlinNoise(float x, float y) => 0; public const float Rad2Deg = 57.3f; public static float Atan2(float y, float x) => 0; public static float MoveTowards(float a, float b, float d) => a; public static float Sqrt(float f) => f; public static float Sign(float f) => f; public static int Min(int a, int b) => a;
     }
     public static class Time { public static float deltaTime, time, unscaledDeltaTime; }
     public static class Debug { public static void Log(object o) { } public static void LogWarning(object o) { } public static void LogException(Exception e) { } }
@@ -73,7 +75,7 @@ namespace UnityEngine
     public class Shader : Object { public static Shader Find(string n) => null; }
     public class Material : Object
     {
-        public Material(Shader s) { } public Shader shader; public string[] shaderKeywords;
+        public Material(Shader s) { } public Material(Material m) { } public bool enableInstancing; public Shader shader; public string[] shaderKeywords;
         public void SetColor(string n, Color c) { } public void SetTexture(string n, Texture t) { } public void SetFloat(string n, float f) { } public float GetFloat(string n) => 0;
         public void CopyPropertiesFromMaterial(Material m) { }
     }
@@ -83,8 +85,8 @@ namespace UnityEngine
     public enum TextureWrapMode { Repeat, Clamp }
     public sealed class Texture2D : Texture
     {
-        public Texture2D(int w, int h, TextureFormat f, bool mip, bool linear) { }
-        public static Texture2D whiteTexture; public void SetPixelData<T>(T[] d, int mip, int start = 0) { } public void Apply(bool a, bool b) { }
+        public Texture2D(int w, int h, TextureFormat f, bool mip, bool linear) { } public Texture2D(int w, int h, TextureFormat f, bool mip) { }
+        public static Texture2D whiteTexture; public void SetPixelData<T>(T[] d, int mip, int start = 0) { } public void Apply(bool a, bool b) { } public void Apply() { } public void SetPixels(Color[] c) { }
         public byte[] EncodeToPNG() => null;
     }
     public enum CubemapFace { PositiveX, NegativeX, PositiveY, NegativeY, PositiveZ, NegativeZ }
@@ -94,17 +96,32 @@ namespace UnityEngine
     public enum TextAnchor { UpperLeft, UpperCenter, UpperRight, MiddleLeft, MiddleCenter, MiddleRight }
     public enum FontStyle { Normal, Bold }
     public class GUIStyleState { public Color textColor; }
-    public class GUIStyle { public GUIStyle() { } public GUIStyle(GUIStyle o) { } public int fontSize; public FontStyle fontStyle; public TextAnchor alignment; public bool richText; public GUIStyleState normal, hover; }
+    public class GUIStyle { public GUIStyle() { } public GUIStyle(GUIStyle o) { } public bool wordWrap; public int fontSize; public FontStyle fontStyle; public TextAnchor alignment; public bool richText; public GUIStyleState normal, hover; }
     public class GUISkin { public GUIStyle label, button, box; }
     public static class GUI
     {
-        public static GUISkin skin; public static Color color; public static bool enabled;
+        public static GUISkin skin; public static Color color; public static bool enabled; public static Matrix4x4 matrix;
         public static void DrawTexture(Rect r, Texture t) { } public static void Label(Rect r, string s, GUIStyle st) { }
         public static bool Button(Rect r, string s, GUIStyle st) => false; public static float HorizontalSlider(Rect r, float v, float a, float b) => v;
     }
     public enum EventType { MouseDown }
     public class Event { public static Event current; public EventType type; public Vector2 mousePosition; public int button; public void Use() { } }
     public class SerializeField : Attribute { }
+}
+namespace UnityEngine
+{
+    public struct Matrix4x4 { public static Matrix4x4 TRS(Vector3 p, Quaternion q, Vector3 s) => default; public static Matrix4x4 identity; }
+    public sealed class AudioClip : Object { public static AudioClip Create(string n, int len, int ch, int freq, bool stream) => null; public bool SetData(float[] d, int off) => true; }
+    public enum AudioRolloffMode { Logarithmic, Linear, Custom }
+    public sealed class AudioSource : Behaviour
+    {
+        public float spatialBlend, minDistance, maxDistance, dopplerLevel, volume, pitch; public AudioRolloffMode rolloffMode; public AudioClip clip; public bool loop;
+        public void Play() { } public void PlayOneShot(AudioClip c) { } public void PlayOneShot(AudioClip c, float v) { }
+    }
+    public static class Random { public static Quaternion rotation; public static Vector3 insideUnitSphere; public static float Range(float a, float b) => a; public static int Range(int a, int b) => a; }
+    public struct RenderParams { public RenderParams(Material m) { material = m; shadowCastingMode = default; receiveShadows = true; } public Material material; public UnityEngine.Rendering.ShadowCastingMode shadowCastingMode; public bool receiveShadows; }
+    public static class Graphics { public static void RenderMeshInstanced<T>(in RenderParams rp, Mesh mesh, int submesh, T[] data, int count = -1, int start = 0) where T : unmanaged { } }
+    public static class GUIUtility { public static void RotateAroundPivot(float angle, Vector2 pivot) { } }
 }
 namespace UnityEngine.SceneManagement { public struct Scene { public string path; } public static class SceneManager { public static Scene GetActiveScene() => default; } }
 namespace UnityEngine.Rendering
@@ -190,7 +207,7 @@ namespace UnityEngine.InputSystem
     public class Keyboard
     {
         public static Keyboard current; public Controls.KeyControl this[Key k] => null;
-        public Controls.KeyControl wKey, aKey, sKey, dKey, cKey, eKey, qKey, fKey, vKey, hKey, iKey, tabKey, spaceKey, escapeKey, leftShiftKey, leftCtrlKey, f5Key;
+        public Controls.KeyControl rKey, bKey, wKey, aKey, sKey, dKey, cKey, eKey, qKey, fKey, vKey, hKey, iKey, tabKey, spaceKey, escapeKey, leftShiftKey, leftCtrlKey, f5Key;
     }
     public class Mouse { public static Mouse current; public Controls.Vector2Control delta, scroll; public Controls.ButtonControl leftButton, rightButton; }
 }

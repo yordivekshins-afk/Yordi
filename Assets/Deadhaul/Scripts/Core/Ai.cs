@@ -55,7 +55,8 @@ namespace Deadhaul.Core
         public V3 Vel, Home, Goal;
         public bool Grounded;
         public int TargetId = -1;
-        public float StateTime, AttackCooldown, Awareness, SeenTime, StuckTime, Speed01;
+        public float StateTime, AttackCooldown, Awareness, SeenTime, StuckTime, Speed01, SenseTimer;
+        public int SeenId = -1;             // wie hij bij de laatste waarneming zag
         public V3 LastSeen;
         public Stack Weapon;
         public bool Looted;
@@ -115,16 +116,25 @@ namespace Deadhaul.Core
             // ---------------- waarnemen
             Actor target = n.TargetId >= 0 ? ctx.Actors.Get(n.TargetId) : null;
             if (target != null && !target.Alive) { target = null; n.TargetId = -1; }
-            Actor seen = null; float seenDist = float.MaxValue;
-            foreach (var a in ctx.Actors.All)
+            // rondkijken kost raycasts: vijf keer per seconde is genoeg
+            n.SenseTimer -= dt;
+            if (n.SenseTimer <= 0)
             {
-                if (a == n || !a.Alive) continue;
-                bool threat = def.Passive ? a.Faction != Faction.Dier : Npcs.Hostile(n.Faction, a.Faction);
-                if (!threat) continue;
-                float d = Dist(n.Pos, a.Pos);
-                if (d > 130) continue;
-                if (CanSee(n, a, d, ctx) && d < seenDist) { seen = a; seenDist = d; }
+                n.SenseTimer = 0.2f + (n.Seed % 5) * 0.01f;
+                n.SeenId = -1; float best = float.MaxValue;
+                foreach (var a in ctx.Actors.All)
+                {
+                    if (a == n || !a.Alive) continue;
+                    bool threat = def.Passive ? a.Faction != Faction.Dier : Npcs.Hostile(n.Faction, a.Faction);
+                    if (!threat) continue;
+                    float d = Dist(n.Pos, a.Pos);
+                    if (d > 130 || d >= best) continue;
+                    if (CanSee(n, a, d, ctx)) { n.SeenId = a.Id; best = d; }
+                }
             }
+            Actor seen = n.SeenId >= 0 ? ctx.Actors.Get(n.SeenId) : null;
+            if (seen != null && !seen.Alive) { seen = null; n.SeenId = -1; }
+            float seenDist = seen != null ? Dist(n.Pos, seen.Pos) : float.MaxValue;
             if (seen != null)
             {
                 n.Awareness = Math.Min(1f, n.Awareness + dt * (seenDist < 10 ? 3f : 1.2f));

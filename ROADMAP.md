@@ -22,22 +22,29 @@ Werkafspraak uit het dossier blijft: **elke mijlpaal is speelbaar**, en er wordt
 - Survival: gezondheid, honger, dorst, uithouding, warmte, bloeden, ziekte (vies water), kampvuren
 - Opslaan en laden, pauzemenu, doodscherm
 
-## M2 – Wapens, uitrusting en gevechten (à la BattleBit, maar dan filmischer)
+## ✅ M2 – Wapens, uitrusting en gevechten (à la BattleBit, maar dan filmischer)
 
-- Echte vuurwapens in voxel-detail: pistolen, SMG's, geweren, shotguns, sniper, bogen, messen/steekwapens
-- **Attachments**: dempers, scopes/red dots, handgrepen/grips, lasers, zaklampen, slings, grotere magazijnen
-- Schieten met ballistiek, terugslag, mondingsvuur, tracers, inslagdecals, bloed, geluid dat vijanden aantrekt
-- **Loadout**: plate carriers/rigs met vakken, rugzakken in maten, holsters, helmen
-- **Kleding** per laag: sneakers, schoenen, laarzen, legerkistjes; jeans, cargobroeken, militaire uniformen,
-  **hazmatpakken** en gasmaskers (nodig in straling), winterkleding; elk kledingstuk heeft opslag, warmte en bescherming
-- Inventaris als in extraction shooters: rig/rugzak/zakken, gewicht, rotatie van voorwerpen
+- ✅ Vuurwapens in voxel-detail (1,5 cm-voxels): G19, MP5, AKM, M4A1, pompgeweer, jachtgeweer .308; melee (pijp, bijl, breekijzer)
+- ✅ **Attachments** op montagepunten: 9mm- en geweerdemper, compensator, red dot, holo, 4×/8×-scope, verticale en hoekgreep,
+  laser, wapenlamp, draagriem, vergrote magazijnen — met effect op terugslag, spreiding, geluid, richtsnelheid en vergroting
+- ✅ Ballistiek met kogelval en penetratie (glas breekt, hout en autoplaat laten zware kalibers door), treffers per lichaamsdeel
+- ✅ Terugslag, spreiding, richten, scope-overlay, herladen, vuurmodus, mondingsvuur met lichtflits, lichtsporen, hulzen, vonken, stof, bloed
+- ✅ Geluid (gesynthetiseerd): schoten per kaliber, gedempt, herladen, inslagen, glas; schoten trekken vijanden aan
+- ✅ **Kleding en uitrusting** per slot: sneakers, schoenen, wandelschoenen, legerkistjes; jeans, joggingbroek, cargobroek, legerbroek;
+  t-shirt, hoodie, werkjas, legerjas, winterjas, **hazmatpak**; chest rig, kogelwerend vest, plate carrier; schoudertas,
+  rugzak, legerrugzak; muts, pet, bouwhelm, gevechtshelm; bandana, **gasmasker** — met vakken, draaggewicht, warmte, pantser en stralingsbescherming, zichtbaar op je personage
+- ✅ Wapenbank in de rugzak om attachments te monteren
+- Nog te doen: bogen en messen, holsters, voorwerpen draaien in de inventaris, opgenomen geluiden
 
-## M3 – Gevaar: raiders, mutanten en straling
+## ✅ M3 – Gevaar: raiders, mutanten en straling
 
-- Raiders en bendes met dekking-AI, groepen, moraal, onderhandelen (uit het dossier)
-- **Gemuteerde mensen en dieren**, gewelddadig, met eigen gedrag per soort
-- **Stralingszones** rond inslagkraters en reactoren: geigerteller, dosis, pillen, hazmat verplicht
-- Sloopbare gebouwen: explosies en instortingen van voxelconstructies
+- ✅ Raiders (aaseter, bendelid, scherpschutter) in groepen, met willekeurige uitrusting en wapens die ze bij hun dood laten vallen
+- ✅ **Mutanten**: ghouls (snel, 's nachts actief, gloeiende ogen), brutes (2,7 m, 380 HP), mutantwolven in roedels; herten om te jagen
+- ✅ AI met zicht (kijkhoek, afstand, dag/nacht, zaklamp verraadt je, sluipen helpt) en gehoor, onderzoeken, aanvallen op afstand of melee, vluchten
+- ✅ **Atoomkraters** met stralingsniveau, as, kratermeren en gloeiende kristallen; geigerteller, jodium, hazmat en gasmasker beschermen
+- ✅ Legerposten met zandzakken, tenten, wachttoren en munitiekisten
+- ✅ Lijken doorzoeken, rauw vlees bakken bij het vuur, vacht voor kleding
+- Nog te doen: dekking zoeken, onderhandelen, sloopbare gebouwen met instorting en explosies
 
 ## M4 – Levende steden
 

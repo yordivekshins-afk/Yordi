@@ -21,12 +21,16 @@ namespace Deadhaul
         float fps, fpsTimer; int fpsFrames;
 
         GUIStyle label, small, title, huge, button, box, center;
-        Texture2D white;
+        Texture2D white, scopeMask;
+        float hitTime = -10; bool hitKill, hitHead;
+        int modSlot = -1;
         static readonly Color Ink = new Color(0.92f, 0.89f, 0.8f), Dim = new Color(0.66f, 0.63f, 0.55f), Accent = new Color(0.85f, 0.58f, 0.18f);
         static readonly Color Panel = new Color(0.07f, 0.075f, 0.06f, 0.86f), Line = new Color(0.3f, 0.3f, 0.24f, 1f);
 
         public bool LootOpen => loot != null;
         public bool CapturesInput => InventoryOpen || LootOpen || Paused || game.Stats.Dead || !game.Ready;
+
+        public void HitMarker(bool kill, bool head) { hitTime = Time.time; hitKill = kill; hitHead = head; }
 
         public void Init(GameState g) { game = g; }
 
@@ -56,7 +60,7 @@ namespace Deadhaul
                 else if (InventoryOpen) InventoryOpen = false;
                 else if (!game.Stats.Dead) Paused = !Paused;
             }
-            if (kb.tabKey.wasPressedThisFrame || kb.iKey.wasPressedThisFrame) { if (!Paused && !game.Stats.Dead) { InventoryOpen = !InventoryOpen; loot = null; dragSlot = -1; } }
+            if (kb.tabKey.wasPressedThisFrame || kb.iKey.wasPressedThisFrame) { if (!Paused && !game.Stats.Dead) { InventoryOpen = !InventoryOpen; loot = null; dragSlot = -1; modSlot = -1; } }
             if (kb.hKey.wasPressedThisFrame) ShowHelp = !ShowHelp;
             if (kb.f5Key.wasPressedThisFrame) game.Save();
         }
@@ -72,6 +76,19 @@ namespace Deadhaul
             center = new GUIStyle(label) { alignment = TextAnchor.MiddleCenter };
             button = new GUIStyle(GUI.skin.button) { fontSize = 15, normal = { textColor = Ink }, hover = { textColor = Accent } };
             box = new GUIStyle(GUI.skin.box);
+            // scope-masker: zwart met een rond gat
+            const int S = 256;
+            scopeMask = new Texture2D(S, S, TextureFormat.RGBA32, false);
+            var px = new Color[S * S];
+            for (int y = 0; y < S; y++)
+                for (int x = 0; x < S; x++)
+                {
+                    float dx = (x - S / 2f) / (S / 2f), dy = (y - S / 2f) / (S / 2f);
+                    float r = Mathf.Sqrt(dx * dx + dy * dy);
+                    px[x + y * S] = new Color(0, 0, 0, Mathf.Clamp01((r - 0.9f) / 0.08f));
+                }
+            scopeMask.SetPixels(px);
+            scopeMask.Apply();
         }
 
         void Fill(Rect r, Color c) { var old = GUI.color; GUI.color = c; GUI.DrawTexture(r, white); GUI.color = old; }
@@ -105,12 +122,18 @@ namespace Deadhaul
 
             if (game.Stats.Dead) { DeathScreen(W, H); return; }
 
+            var pl = game.Player;
+            bool scoped = pl.HasGun && pl.Weapon.Zoom >= 3.5f && pl.AimT > 0.95f;
+            if (scoped) Scope(W, H);
+            DamageDirection(W, H);
             Meters(H);
             Hotbar(W, H);
+            if (pl.HasGun) Ammo(W, H);
             TopBar(W);
             Messages(H);
             BannerDraw(W, H);
-            if (!CapturesInput) Crosshair(W, H);
+            if (!CapturesInput && !scoped) Crosshair(W, H);
+            if (!CapturesInput) HitMarkerDraw(W, H);
             if (ShowHelp && !CapturesInput) Help();
             if (InventoryOpen) InventoryWindow(W, H);
             if (LootOpen) LootWindow(W, H);
@@ -130,13 +153,16 @@ namespace Deadhaul
             Bar(x, y + 48, "Dorst", s.Water, new Color(0.25f, 0.55f, 0.78f));
             Bar(x, y + 72, "Uithouding", s.Stamina, new Color(0.62f, 0.7f, 0.3f));
             Bar(x, y + 96, "Warmte", s.Warmth, Color.Lerp(new Color(0.4f, 0.62f, 0.9f), new Color(0.95f, 0.55f, 0.2f), s.Warmth / 100f));
+            if (s.Radiation > 0.5f || game.Player.Radiation > 0.01f) Bar(x, y - 24, "Straling", s.Radiation, new Color(0.55f, 0.95f, 0.25f));
             var tags = new List<string>();
             if (s.Bleeding) tags.Add("<color=#e0503c>BLOEDT</color>");
             if (s.Sick) tags.Add("<color=#9bc34a>ZIEK</color>");
             if (s.Warmth < 30) tags.Add("<color=#7fb0ff>ONDERKOELD</color>");
             if (game.Player.NearFire) tags.Add("<color=#ffae5a>BIJ HET VUUR</color>");
+            if (game.Player.Radiation > 0.02f) tags.Add($"<color=#9bff5a>STRALINGSZONE {game.Player.Radiation * 100:0}%</color>");
+            if (game.Combat.HostilesNear(60) > 0) tags.Add("<color=#ff7a5a>IN GEVECHT</color>");
             if (game.Player.InWater) tags.Add("<color=#7fd0ff>IN HET WATER — E om te drinken</color>");
-            if (game.Inventory.Weight > game.Inventory.MaxWeight) tags.Add("<color=#e0a03c>OVERBELAST</color>");
+            if (game.Inventory.Weight + game.Equipment.Weight > game.Inventory.MaxWeight) tags.Add("<color=#e0a03c>OVERBELAST</color>");
             GUI.Label(new Rect(x, y + 120, 600, 22), string.Join("   ", tags), label);
         }
 
@@ -157,7 +183,7 @@ namespace Deadhaul
                 Slot(r, game.Inventory.Slots[i], i == game.Player.Selected, (i + 1).ToString());
             }
             var def = game.Player.SelectedDef;
-            if (def != null) GUI.Label(new Rect(0, y - 26, W, 22), def.Name + (def.Kind == ItemKind.Block ? "  —  rechtermuis om te bouwen" : def.Kind is ItemKind.Food or ItemKind.Drink or ItemKind.Medical ? "  —  Q om te gebruiken" : ""), center);
+            if (def != null) GUI.Label(new Rect(0, y - 26, W, 22), def.Name + (def.Kind == ItemKind.Block ? "  —  rechtermuis om te bouwen" : def.Kind is ItemKind.Food or ItemKind.Drink or ItemKind.Medical ? "  —  Q om te gebruiken" : def.Kind == ItemKind.Clothing ? "  —  Q om aan te trekken" : ""), center);
         }
 
         void Slot(Rect r, Stack s, bool selected, string key)
@@ -170,6 +196,8 @@ namespace Deadhaul
                 Fill(new Rect(r.x + 14, r.y + 10, r.width - 28, r.height - 30), IconColor(d));
                 GUI.Label(new Rect(r.x + 3, r.yMax - 20, r.width - 6, 18), d.Name, new GUIStyle(small) { fontSize = 10, alignment = TextAnchor.MiddleCenter, normal = { textColor = Ink } });
                 if (s.Count > 1) GUI.Label(new Rect(r.xMax - 30, r.y + 2, 28, 18), s.Count.ToString(), new GUIStyle(small) { alignment = TextAnchor.UpperRight, normal = { textColor = Ink } });
+                if (d.GunDamage > 0) GUI.Label(new Rect(r.xMax - 34, r.y + 2, 32, 18), s.Ammo.ToString(), new GUIStyle(small) { alignment = TextAnchor.UpperRight, normal = { textColor = Accent } });
+                if (s.Mods != null) Fill(new Rect(r.x + 2, r.y + 2, 4, 4), Accent);
             }
             if (key != null) GUI.Label(new Rect(r.x + 4, r.y + 2, 20, 16), key, small);
         }
@@ -211,6 +239,18 @@ namespace Deadhaul
 
         void Crosshair(float W, float H)
         {
+            var pl = game.Player;
+            if (pl.HasGun)
+            {
+                float hs = new Vector2(pl.Vel.X, pl.Vel.Z).magnitude;
+                float spread = pl.Weapon.Spread * Mathf.Lerp(1f, 0.22f, pl.AimT) * (hs > 1 ? 1.6f : 1f) * (pl.Crouching ? 0.75f : 1f) * (1 + pl.Bloom);
+                float gap = 3 + spread * H / Mathf.Max(10f, game.Player.Cam.fieldOfView) * 0.5f;
+                var c = new Color(1, 1, 1, Mathf.Lerp(0.8f, 0.35f, pl.AimT));
+                Fill(new Rect(W / 2 - 1, H / 2 - gap - 8, 2, 8), c); Fill(new Rect(W / 2 - 1, H / 2 + gap, 2, 8), c);
+                Fill(new Rect(W / 2 - gap - 8, H / 2 - 1, 8, 2), c); Fill(new Rect(W / 2 + gap, H / 2 - 1, 8, 2), c);
+                Fill(new Rect(W / 2 - 1, H / 2 - 1, 2, 2), new Color(1, 0.3f, 0.2f, 0.9f));
+                return;
+            }
             Fill(new Rect(W / 2 - 1, H / 2 - 7, 2, 14), new Color(1, 1, 1, 0.7f));
             Fill(new Rect(W / 2 - 7, H / 2 - 1, 14, 2), new Color(1, 1, 1, 0.7f));
             var t = game.Player.Target;
@@ -225,67 +265,222 @@ namespace Deadhaul
             }
         }
 
+        void HitMarkerDraw(float W, float H)
+        {
+            float age = Time.time - hitTime;
+            if (age > 0.25f) return;
+            var c = hitKill ? new Color(1f, 0.25f, 0.2f, 1 - age * 4) : hitHead ? new Color(1f, 0.85f, 0.3f, 1 - age * 4) : new Color(1, 1, 1, 1 - age * 4);
+            float g = 6, l = hitKill ? 12 : 8;
+            var old = GUI.matrix;
+            foreach (float ang in new[] { 45f, 135f, 225f, 315f })
+            {
+                GUIUtility.RotateAroundPivot(ang, new Vector2(W / 2, H / 2));
+                Fill(new Rect(W / 2 - 1, H / 2 + g, 2, l), c);
+                GUI.matrix = old;
+            }
+        }
+
+        void DamageDirection(float W, float H)
+        {
+            var pa = game.Combat.PlayerActor;
+            float age = Time.time - pa.LastHitTime;
+            if (age > 1.2f) return;
+            var from = pa.LastHitFrom - pa.Pos;
+            float ang = Mathf.Atan2(from.X, from.Z) * Mathf.Rad2Deg - game.Player.Yaw;
+            var old = GUI.matrix;
+            GUIUtility.RotateAroundPivot(ang, new Vector2(W / 2, H / 2));
+            Fill(new Rect(W / 2 - 60, H / 2 - 190, 120, 8), new Color(0.9f, 0.1f, 0.05f, (1.2f - age) * 0.7f));
+            GUI.matrix = old;
+        }
+
+        void Scope(float W, float H)
+        {
+            float size = H * 0.95f;
+            var r = new Rect((W - size) / 2, (H - size) / 2, size, size);
+            GUI.DrawTexture(r, scopeMask);
+            Fill(new Rect(0, 0, r.x + 1, H), Color.black); Fill(new Rect(r.xMax - 1, 0, W - r.xMax + 1, H), Color.black);
+            Fill(new Rect(W / 2 - 0.5f, r.y, 1, size), new Color(0, 0, 0, 0.85f));
+            Fill(new Rect(r.x, H / 2 - 0.5f, size, 1), new Color(0, 0, 0, 0.85f));
+            Fill(new Rect(W / 2 - 2, H / 2 - 2, 4, 4), new Color(0.9f, 0.1f, 0.05f, 0.9f));
+            for (int i = 1; i <= 4; i++) Fill(new Rect(W / 2 - 6, H / 2 + i * size * 0.035f, 12, 1), new Color(0, 0, 0, 0.85f));   // valcompensatie
+        }
+
+        void Ammo(float W, float H)
+        {
+            var pl = game.Player;
+            var s = game.Inventory.Slots[pl.Selected];
+            if (s.Empty) return;
+            var d = s.Def;
+            int reserve = game.Inventory.Count(d.AmmoId);
+            var r = new Rect(W - 260, H - 96, 238, 74);
+            Frame(r);
+            GUI.Label(new Rect(r.x + 14, r.y + 6, 220, 22), d.Name, label);
+            GUI.Label(new Rect(r.x + 14, r.y + 26, 220, 44), $"<size=30><b>{s.Ammo}</b></size> <color=#a8a08a>/ {reserve}</color>", label);
+            string mode = pl.Weapon.Automatic ? (pl.FullAuto ? "AUTO" : "ENKEL") : d.Class == WeaponClass.Shotgun ? "POMP" : d.Class == WeaponClass.Sniper ? "GRENDEL" : "SEMI";
+            GUI.Label(new Rect(r.xMax - 90, r.y + 38, 80, 22), mode, new GUIStyle(small) { alignment = TextAnchor.MiddleRight, normal = { textColor = Accent } });
+            if (pl.Reloading)
+            {
+                float t = 1 - pl.ReloadT / Mathf.Max(0.1f, pl.Weapon.ReloadTime);
+                Fill(new Rect(r.x, r.yMax - 4, r.width * t, 4), Accent);
+                GUI.Label(new Rect(0, H / 2 + 40, W, 22), "Herladen…", center);
+            }
+            else if (s.Ammo == 0) GUI.Label(new Rect(0, H / 2 + 40, W, 22), reserve > 0 ? "R om te herladen" : "Geen munitie", center);
+        }
+
         void Help()
         {
-            var r = new Rect(22, 60, 330, 212);
+            var r = new Rect(22, 60, 400, 212);
             Frame(r);
             GUI.Label(new Rect(r.x + 12, r.y + 8, r.width, 24), "Besturing", title);
             GUI.Label(new Rect(r.x + 12, r.y + 38, r.width - 20, r.height - 40),
                 "WASD lopen · Shift sprinten · C sluipen · Spatie springen/zwemmen\n" +
-                "Linkermuis slopen/slaan · Rechtermuis bouwen\n" +
-                "E doorzoeken/plukken/drinken · Q eten/gebruiken\n" +
-                "1–6 of scrollen: snelbalk · Tab rugzak & crafting\n" +
-                "F zaklamp · V first-person · F5 opslaan · Esc menu\n" +
-                "H verbergt deze hulp", small);
+                "Linkermuis schieten/slaan/slopen · Rechtermuis richten/bouwen\n" +
+                "R herladen · B vuurmodus · E doorzoeken (ook lijken)\n" +
+                "Q eten/gebruiken/aantrekken · 1–6 of scrollen: snelbalk\n" +
+                "Tab rugzak, uitrusting, wapenbank en crafting\n" +
+                "F zaklamp · V first-person · F5 opslaan · Esc menu · H hulp", small);
         }
+
+        static readonly string[] SlotNames = { "Hoofd", "Gezicht", "Romp", "Vest", "Rug", "Benen", "Voeten" };
 
         void InventoryWindow(float W, float H)
         {
             var inv = game.Inventory;
-            var r = new Rect(W / 2 - 470, H / 2 - 250, 940, 500);
+            var r = new Rect(W / 2 - 640, H / 2 - 320, 1280, 640);
             Frame(r);
-            GUI.Label(new Rect(r.x + 18, r.y + 12, 300, 30), "Rugzak", title);
-            GUI.Label(new Rect(r.x + 120, r.y + 18, 400, 24), $"{inv.Weight:0.0} / {inv.MaxWeight:0} kg   ·   klik om te verplaatsen, rechtsklik om te gebruiken of weg te gooien", small);
-            float size = 70, gap = 6;
+            // ------------------------------------------------ uitrusting
+            GUI.Label(new Rect(r.x + 18, r.y + 12, 300, 30), "Uitrusting", title);
+            var eq = game.Equipment;
+            for (int i = 0; i < 7; i++)
+            {
+                var sr = new Rect(r.x + 18, r.y + 56 + i * 64, 58, 58);
+                Slot(sr, eq.Slots[i], false, null);
+                GUI.Label(new Rect(sr.xMax + 8, sr.y + 4, 150, 20), SlotNames[i], small);
+                if (!eq.Slots[i].Empty)
+                {
+                    var d = eq.Slots[i].Def;
+                    var bits = new List<string>();
+                    if (d.Capacity > 0) bits.Add($"+{d.Capacity} vakken");
+                    if (d.Armor > 0) bits.Add($"pantser {d.Armor * 100:0}%");
+                    if (d.Warmth > 0) bits.Add($"warmte {d.Warmth * 100:0}");
+                    if (d.RadProtection > 0) bits.Add($"straling −{d.RadProtection * 100:0}%");
+                    GUI.Label(new Rect(sr.xMax + 8, sr.y + 22, 170, 34), string.Join(" · ", bits), new GUIStyle(small) { wordWrap = true, fontSize = 11 });
+                }
+                var e = Event.current;
+                if (e.type == EventType.MouseDown && sr.Contains(e.mousePosition)) { game.TakeOff((EquipSlot)i); e.Use(); }
+            }
+            GUI.Label(new Rect(r.x + 18, r.y + 510, 240, 90),
+                $"Draagvermogen {inv.MaxWeight:0} kg\nWarmte kleding {eq.Warmth * 100:0}\nStralingsbescherming {eq.Radiation * 100:0}%\nKlik op een stuk om het uit te trekken.", small);
+
+            // ------------------------------------------------ rugzak
+            float gx = r.x + 270;
+            GUI.Label(new Rect(gx, r.y + 12, 300, 30), "Rugzak", title);
+            GUI.Label(new Rect(gx + 100, r.y + 18, 520, 24), $"{inv.Weight + eq.Weight:0.0} / {inv.MaxWeight:0} kg  ·  {inv.Capacity} vakken  ·  klik = verplaatsen, rechtsklik = gebruiken / aantrekken / wapen aanpassen", small);
+            float size = 62, gap = 5;
             for (int i = 0; i < inv.Slots.Length; i++)
             {
-                int col = i % 6, row = i / 6;
-                var sr = new Rect(r.x + 18 + col * (size + gap), r.y + 56 + row * (size + gap) + (row > 0 ? 10 : 0), size, size);
-                Slot(sr, inv.Slots[i], i == dragSlot, i < Inventory.HotbarSize ? (i + 1).ToString() : null);
+                int col = i % 8, row = i / 8;
+                var sr = new Rect(gx + col * (size + gap), r.y + 56 + row * (size + gap) + (row > 0 ? 8 : 0), size, size);
+                bool locked = i >= inv.Capacity;
+                if (locked && inv.Slots[i].Empty) { Fill(sr, new Color(0.03f, 0.03f, 0.03f, 0.6f)); continue; }
+                Slot(sr, inv.Slots[i], i == dragSlot || i == modSlot, i < Inventory.HotbarSize ? (i + 1).ToString() : null);
+                if (locked) Fill(sr, new Color(0.4f, 0, 0, 0.3f));
                 var e = Event.current;
                 if (e.type == EventType.MouseDown && sr.Contains(e.mousePosition))
                 {
                     if (e.button == 0)
                     {
                         if (dragSlot < 0) { if (!inv.Slots[i].Empty) dragSlot = i; }
-                        else { inv.Swap(dragSlot, i); dragSlot = -1; game.Player.RefreshTool(); }
+                        else { if (!locked || inv.Slots[dragSlot].Empty) inv.Swap(dragSlot, i); dragSlot = -1; game.Player.RefreshTool(); }
                     }
-                    else if (e.button == 1 && !inv.Slots[i].Empty)
-                    {
-                        var msg = game.Stats.Use(inv.Slots[i].Def);
-                        if (msg != null) Message(msg);
-                        else Message($"Weggegooid: {inv.Slots[i].Def.Name}.");
-                        inv.TakeFromSlot(i);
-                        game.Player.RefreshTool();
-                    }
+                    else if (e.button == 1 && !inv.Slots[i].Empty) RightClick(i);
                     e.Use();
                 }
             }
-            // crafting
-            float cx = r.x + 500;
-            GUI.Label(new Rect(cx, r.y + 12, 300, 30), "Maken", title);
-            float y = r.y + 56;
+
+            // ------------------------------------------------ wapenbank of crafting
+            float cx = r.x + 820;
+            if (modSlot >= 0 && !inv.Slots[modSlot].Empty && inv.Slots[modSlot].Def.GunDamage > 0) WeaponBench(new Rect(cx, r.y + 12, 440, 610));
+            else { modSlot = -1; CraftList(cx, r.y + 12); }
+        }
+
+        void RightClick(int i)
+        {
+            var inv = game.Inventory;
+            var d = inv.Slots[i].Def;
+            if (d.Kind == ItemKind.Clothing) { game.WearFromSlot(i); return; }
+            if (d.GunDamage > 0) { modSlot = modSlot == i ? -1 : i; return; }
+            if (d.Kind == ItemKind.Attachment) { Message("Rechtsklik op een wapen om attachments te monteren."); return; }
+            var msg = game.Stats.Use(d);
+            if (msg != null) Message(msg);
+            else Message($"Weggegooid: {d.Name}.");
+            inv.TakeFromSlot(i);
+            game.Player.RefreshTool();
+        }
+
+        void WeaponBench(Rect r)
+        {
+            var inv = game.Inventory;
+            ref var w = ref inv.Slots[modSlot];
+            var d = w.Def;
+            var st = Arsenal.Stats(w);
+            GUI.Label(new Rect(r.x, r.y, r.width, 30), "Wapenbank — " + d.Name, title);
+            GUI.Label(new Rect(r.x, r.y + 32, r.width, 60),
+                $"Schade {st.Damage:0}{(st.Pellets > 1 ? " × " + st.Pellets : "")}   ·   {60f / st.Interval:0} schoten/min   ·   magazijn {st.MagSize}\n" +
+                $"Terugslag {st.RecoilV:0.00}   ·   spreiding {st.Spread:0.0}°   ·   vergroting {st.Zoom:0.0}×   ·   geluid {st.Noise:0} m", small);
+            float y = r.y + 80;
+            for (int si = 0; si < Arsenal.AttachSlotCount; si++)
+            {
+                var slot = (AttachSlot)si;
+                if ((d.Mounts & Arsenal.MaskOf(slot)) == 0) continue;
+                var cur = w.Mod(slot);
+                Fill(new Rect(r.x, y, r.width, 26), new Color(0.12f, 0.12f, 0.1f, 0.9f));
+                GUI.Label(new Rect(r.x + 8, y + 3, 140, 22), slot.ToString(), label);
+                GUI.Label(new Rect(r.x + 130, y + 3, 200, 22), cur != null ? Items.Get(cur).Name : "—", new GUIStyle(label) { normal = { textColor = cur != null ? Accent : Dim } });
+                if (cur != null && GUI.Button(new Rect(r.xMax - 70, y + 1, 66, 24), "Eraf", button))
+                {
+                    if (inv.Add(cur, 1) == 0) { w.SetMod(slot, null); game.Player.RefreshTool(); }
+                    else Message("Geen plek in je rugzak.");
+                }
+                y += 30;
+                for (int i = 0; i < inv.Capacity && i < inv.Slots.Length; i++)
+                {
+                    var a = inv.Slots[i];
+                    if (a.Empty || a.Def.Kind != ItemKind.Attachment || a.Def.AttachSlot != slot || !Arsenal.Fits(d, a.Def)) continue;
+                    GUI.Label(new Rect(r.x + 24, y, 250, 22), a.Def.Name, small);
+                    if (GUI.Button(new Rect(r.xMax - 90, y - 1, 86, 22), "Monteer", button))
+                    {
+                        string attId = a.Id;
+                        inv.TakeFromSlot(i);
+                        if (cur != null) inv.Add(cur, 1);
+                        inv.Slots[modSlot].SetMod(slot, attId);
+                        game.Player.RefreshTool();
+                        Message($"{Items.Get(attId).Name} gemonteerd.");
+                        return;
+                    }
+                    y += 24;
+                }
+                y += 4;
+            }
+            if (GUI.Button(new Rect(r.x, r.yMax - 40, 140, 32), "Sluiten", button)) modSlot = -1;
+        }
+
+        void CraftList(float cx, float top)
+        {
+            var inv = game.Inventory;
+            GUI.Label(new Rect(cx, top, 300, 30), "Maken" + (game.Player.NearFire ? "  (bij het vuur)" : ""), title);
+            float y = top + 44;
             foreach (var rec in Crafting.All)
             {
                 var def = Items.Get(rec.Result);
                 bool can = Crafting.CanCraft(inv, rec, game.Player.NearFire);
-                var rr = new Rect(cx, y, 420, 46);
+                var rr = new Rect(cx, y, 440, 46);
                 Fill(rr, new Color(0.1f, 0.1f, 0.08f, 0.8f));
                 Fill(new Rect(rr.x + 8, rr.y + 8, 30, 30), IconColor(def));
-                GUI.Label(new Rect(rr.x + 48, rr.y + 3, 260, 22), $"{def.Name}{(rec.Count > 1 ? " ×" + rec.Count : "")}", label);
+                GUI.Label(new Rect(rr.x + 48, rr.y + 3, 260, 22), $"{def.Name}{(rec.Count > 1 ? " ×" + rec.Count : "")}{(rec.NeedsFire ? "  (bij vuur)" : "")}", label);
                 var needs = new List<string>();
                 foreach (var (id, n) in rec.Needs) needs.Add($"{n} {Items.Get(id).Name.ToLowerInvariant()} ({inv.Count(id)})");
-                GUI.Label(new Rect(rr.x + 48, rr.y + 24, 280, 20), string.Join(", ", needs), small);
+                GUI.Label(new Rect(rr.x + 48, rr.y + 24, 300, 20), string.Join(", ", needs), small);
                 GUI.enabled = can;
                 if (GUI.Button(new Rect(rr.xMax - 90, rr.y + 8, 80, 30), "Maak", button))
                 {
@@ -307,12 +502,11 @@ namespace Deadhaul
             {
                 var s = loot[i];
                 Fill(new Rect(r.x + 18, y + 6, 28, 28), IconColor(s.Def));
-                GUI.Label(new Rect(r.x + 56, y + 8, 250, 24), $"{s.Count}× {s.Def.Name}", label);
+                GUI.Label(new Rect(r.x + 56, y + 8, 250, 24), $"{s.Count}× {s.Def.Name}{(s.Def.GunDamage > 0 ? $"  ({s.Ammo})" : "")}{(s.Mods != null ? "  +" : "")}", label);
                 if (GUI.Button(new Rect(r.xMax - 100, y + 6, 82, 30), "Pak", button))
                 {
-                    int left = game.Inventory.Add(s.Id, s.Count);
-                    if (left == 0) { loot.RemoveAt(i); i--; }
-                    else { s.Count = left; loot[i] = s; Message("Je rugzak zit vol."); }
+                    if (Take(s, out var rest)) { loot.RemoveAt(i); i--; }
+                    else { loot[i] = rest; Message("Je rugzak zit vol."); }
                     game.Player.RefreshTool();
                 }
                 y += 44;
@@ -321,14 +515,22 @@ namespace Deadhaul
             {
                 for (int i = loot.Count - 1; i >= 0; i--)
                 {
-                    var s = loot[i];
-                    int left = game.Inventory.Add(s.Id, s.Count);
-                    if (left == 0) loot.RemoveAt(i); else { s.Count = left; loot[i] = s; }
+                    if (Take(loot[i], out var rest)) loot.RemoveAt(i); else loot[i] = rest;
                 }
                 if (loot.Count > 0) Message("Niet alles past in je rugzak.");
                 game.Player.RefreshTool();
             }
             if (GUI.Button(new Rect(r.xMax - 118, r.yMax - 48, 100, 32), "Sluiten", button) || loot.Count == 0) loot = null;
+        }
+
+        /// <summary>Stopt een stapel in de rugzak, met behoud van magazijn en attachments.</summary>
+        bool Take(Stack s, out Stack rest)
+        {
+            rest = s;
+            if (s.Def.MaxStack == 1) return game.Inventory.AddStack(s);
+            int left = game.Inventory.Add(s.Id, s.Count);
+            rest.Count = left;
+            return left == 0;
         }
 
         void PauseMenu(float W, float H)
@@ -364,7 +566,7 @@ namespace Deadhaul
         {
             Fill(new Rect(0, 0, W, H), new Color(0.12f, 0.01f, 0.01f, 0.82f));
             GUI.Label(new Rect(0, H * 0.35f, W, 60), "JE BENT DOOD", huge);
-            GUI.Label(new Rect(0, H * 0.35f + 64, W, 28), $"Je overleefde tot {game.Clock.Label}.", center);
+            GUI.Label(new Rect(0, H * 0.35f + 64, W, 28), $"Je overleefde tot {game.Clock.Label} en schakelde {game.Combat.Kills} vijanden uit.", center);
             if (GUI.Button(new Rect(W / 2 - 120, H * 0.35f + 120, 240, 40), "Opnieuw beginnen", button)) game.Respawn();
         }
     }

@@ -28,6 +28,8 @@ namespace Deadhaul
         public PlayerController Player { get; private set; }
         public Hud Hud { get; private set; }
         public Campfires Campfires { get; private set; }
+        public CombatSystem Combat { get; private set; }
+        public Equipment Equipment { get; private set; } = new Equipment();
         public Survival Stats { get; private set; } = new Survival();
         public Inventory Inventory { get; private set; } = new Inventory();
         public GameClock Clock { get; private set; } = new GameClock();
@@ -57,6 +59,10 @@ namespace Deadhaul
 
             Campfires = new GameObject("Kampvuren").AddComponent<Campfires>();
             Campfires.Init(Chunks);
+            new GameObject("Effecten").AddComponent<Fx>();
+            new GameObject("Geluid").AddComponent<Sfx>();
+            Combat = new GameObject("Gevechten").AddComponent<CombatSystem>();
+            Combat.Init(this);
 
             var cam = CreateCamera();
             Player = new GameObject("Speler").AddComponent<PlayerController>();
@@ -87,16 +93,61 @@ namespace Deadhaul
         {
             Stats = new Survival();
             Inventory = new Inventory();
+            Equipment = StarterClothes();
             Clock.Time = 7.0 / 24.0;
+            var pistol = new Stack("pistool", 1) { Ammo = 9 };
+            Inventory.AddStack(pistol);
             Inventory.Add("pijp", 1);
             Inventory.Add("water", 1);
             Inventory.Add("bonen", 1);
             Inventory.Add("verband", 2);
             Inventory.Add("batterij", 1);
+            Inventory.Add("9mm", 12);
             Player.Selected = 0;
             Player.FlashBattery = 1f;
-            Player.RefreshTool();
+            Player.RefreshLook();
+            Combat.ClearAll();
             SpawnAtStart(false);
+        }
+
+        static Equipment StarterClothes()
+        {
+            var eq = new Equipment();
+            eq.Wear(new Stack("sneakers", 1));
+            eq.Wear(new Stack("jeans", 1));
+            eq.Wear(new Stack("jas", 1));
+            return eq;
+        }
+
+        /// <summary>Trekt het kledingstuk uit dit vak aan; wat je droeg gaat in dat vak.</summary>
+        public void WearFromSlot(int slot)
+        {
+            var s = Inventory.Slots[slot];
+            if (s.Empty || s.Def.Kind != ItemKind.Clothing) return;
+            var old = Equipment.Wear(s);
+            Inventory.Slots[slot] = old;
+            Player.RefreshLook();
+            Hud.Message(old.Empty ? $"Je trekt {s.Def.Name.ToLowerInvariant()} aan." : $"Je wisselt {old.Def.Name.ToLowerInvariant()} voor {s.Def.Name.ToLowerInvariant()}.");
+        }
+
+        /// <summary>Trekt iets uit en legt het in de rugzak, als het past.</summary>
+        public void TakeOff(EquipSlot slot)
+        {
+            var s = Equipment.Slots[(int)slot];
+            if (s.Empty) return;
+            Equipment.TakeOff(slot);
+            Equipment.Apply(Inventory);
+            // vakken die wegvallen moeten leeg zijn
+            bool fits = true;
+            for (int i = Inventory.Capacity; i < Inventory.Slots.Length; i++) if (!Inventory.Slots[i].Empty) fits = false;
+            if (!fits || !Inventory.AddStack(s))
+            {
+                Equipment.Wear(s);
+                Equipment.Apply(Inventory);
+                Hud.Message("Maak eerst ruimte in je rugzak.");
+                return;
+            }
+            Player.RefreshLook();
         }
 
         /// <summary>Start midden in de startstad, op straat.</summary>
@@ -115,10 +166,12 @@ namespace Deadhaul
         {
             Stats = new Survival();
             Inventory = new Inventory();
+            Equipment = StarterClothes();
             Inventory.Add("water", 1);
             Inventory.Add("verband", 1);
             Player.Flashlight = false;
-            Player.RefreshTool();
+            Player.RefreshLook();
+            Combat.ClearAll();
             SpawnAtStart(false);
             Hud.Message("Je wordt wakker in de straten van " + Gen.GetCity(0, 0).Name + ". Je spullen ben je kwijt.");
         }
@@ -159,7 +212,7 @@ namespace Deadhaul
         }
 
         // ------------------------------------------------------------ opslaan
-        const int SaveVersion = 1;
+        const int SaveVersion = 2;
 
         public void Save()
         {
@@ -175,6 +228,8 @@ namespace Deadhaul
                 w.Write(Clock.Time);
                 Stats.Write(w);
                 Inventory.Write(w);
+                Equipment.Write(w);
+                w.Write(Combat.Kills);
                 Chunks.Store.WriteEdits(w);
                 Hud.Message("Spel opgeslagen.");
             }
@@ -196,11 +251,13 @@ namespace Deadhaul
                 Clock.Time = r.ReadDouble();
                 Stats = new Survival(); Stats.Read(r);
                 Inventory = new Inventory(); Inventory.Read(r);
+                Equipment = new Equipment(); Equipment.Read(r);
+                Combat.Kills = r.ReadInt32();
                 Chunks.Store.ReadEdits(r);
                 Chunks.ReloadAll();
                 pendingSpawn = p; pendingFromSave = true; spawned = false;
                 Player.Teleport(p);
-                Player.RefreshTool();
+                Player.RefreshLook();
                 return true;
             }
             catch (Exception e)
