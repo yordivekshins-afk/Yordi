@@ -638,6 +638,7 @@ namespace Deadhaul.Core
                         for (int k = 0; k < 6; k++)
                         {
                             if (Hash.H2(s.Kx * 31 + row, s.Kz * 17 + k, Seed ^ 0xca) > 0.45f) continue;
+                            if (Restorable(s.Kx * 31 + row, s.Kz * 17 + k, 5)) continue;
                             Car(s.X0 + k * 6 + 1, bse + 1, s.Z0 + row * 12 + 2, false, Hash.H2(k, row + s.Kx, Seed), ref o);
                         }
                     return;
@@ -770,6 +771,7 @@ namespace Deadhaul.Core
                     if (r > 0.32f) continue;
                     int z = s * SEG + (int)(Hash.H2(s, i, Seed) * 10);
                     int lane = r < 0.16f ? -4 : 1;
+                    if (Restorable(i * 97, s, 1)) continue;          // dit wordt een echt voertuig
                     var c = GetColumn(lx, z);
                     if (c.Kind != ColumnKind.Highway && c.Kind != ColumnKind.Bridge) continue;
                     int y = (c.Kind == ColumnKind.Bridge ? c.RoadH : c.H) + 1;
@@ -787,6 +789,7 @@ namespace Deadhaul.Core
                     if (r > 0.32f) continue;
                     int x = s * SEG + (int)(Hash.H2(j, s, Seed) * 10);
                     int lane = r < 0.16f ? -4 : 1;
+                    if (Restorable(s, j * 89, 2)) continue;
                     var c = GetColumn(x, lz);
                     if (c.Kind != ColumnKind.Highway && c.Kind != ColumnKind.Bridge) continue;
                     int y = (c.Kind == ColumnKind.Bridge ? c.RoadH : c.H) + 1;
@@ -804,12 +807,117 @@ namespace Deadhaul.Core
                     if (!ns && !ew) continue;
                     var c = (px >= 0 && pz >= 0) ? cols[px + pz * P] : GetColumn(x, z);
                     if (c.Kind != ColumnKind.Street) continue;
-                    if (ns && Hash.H2(x, z, Seed ^ 0xcad) < 0.35f) Car(x, c.H + 1, z, true, Hash.H2(z, x, Seed), ref o);
-                    if (ew && Hash.H2(x, z, Seed ^ 0xcae) < 0.35f) Car(x, c.H + 1, z, false, Hash.H2(x, z, Seed ^ 8), ref o);
+                    if (ns && Hash.H2(x, z, Seed ^ 0xcad) < 0.35f && !Restorable(x, z, 3)) Car(x, c.H + 1, z, true, Hash.H2(z, x, Seed), ref o);
+                    if (ew && Hash.H2(x, z, Seed ^ 0xcae) < 0.35f && !Restorable(x, z, 4)) Car(x, c.H + 1, z, false, Hash.H2(x, z, Seed ^ 8), ref o);
                 }
         }
 
         static readonly byte[] Paints = { B.CarRed, B.CarBlue, B.CarGrey, B.CarWhite, B.Rust };
+
+        /// <summary>Is deze auto nog te redden? Dan komt hij als voertuig in de wereld in plaats van als blokkenwrak.</summary>
+        public bool Restorable(int a, int b, int kind) => Hash.H2(a * 7 + kind, b * 13 - kind, Seed ^ 0xfeed) < (kind == 5 ? 0.18f : 0.1f);
+
+        /// <summary>
+        /// Voertuigen waarvan de oorsprong in deze chunk ligt: redbare auto's (snelweg, straat, parkeerplaats)
+        /// en boten langs de oever. Deterministisch, zodat ze na herladen op dezelfde plek staan.
+        /// </summary>
+        public List<VehicleSpawn> VehicleSpawns(int cx, int cz)
+        {
+            var list = new List<VehicleSpawn>();
+            int x0 = cx * World.ChunkSize, z0 = cz * World.ChunkSize, x1 = x0 + World.ChunkSize, z1 = z0 + World.ChunkSize;
+            bool In(int x, int z) => x >= x0 && x < x1 && z >= z0 && z < z1;
+            const int SEG = 26;
+            float vs = World.VoxelSize;
+            VehicleType CarType(float r) => r < 0.35f ? VehicleType.Pickup : VehicleType.Auto;
+            byte Paint(float r) => Paints[Math.Min(3, (int)(r * 4))];
+            // snelwegen
+            for (int i = FloorDiv(x0 - Half, CityCell) - 1; i <= FloorDiv(x1 - Half, CityCell) + 1; i++)
+            {
+                int lx = i * CityCell + Half;
+                for (int sg = FloorDiv(z0 - 12, SEG); sg <= FloorDiv(z1 + 12, SEG); sg++)
+                {
+                    float r = Hash.H2(i * 97, sg, Seed ^ 0xcab);
+                    if (r > 0.32f || !Restorable(i * 97, sg, 1)) continue;
+                    int z = sg * SEG + (int)(Hash.H2(sg, i, Seed) * 10);
+                    int lane = r < 0.16f ? -4 : 1;
+                    if (!In(lx + lane, z)) continue;
+                    var c = GetColumn(lx, z);
+                    if (c.Kind != ColumnKind.Highway && c.Kind != ColumnKind.Bridge) continue;
+                    int y = (c.Kind == ColumnKind.Bridge ? c.RoadH : c.H) + 1;
+                    float pr = Hash.H2(sg, i * 7, Seed ^ 3);
+                    list.Add(new VehicleSpawn { Key = VoxelStore.VoxelKey(lx + lane, y, z), Type = CarType(pr), Pos = new V3((lx + lane + 2) * vs, y * vs, (z + 4.5f) * vs), Yaw = lane < 0 ? 180 : 0, Paint = Paint(pr), Seed = sg * 31 + i });
+                }
+            }
+            for (int j = FloorDiv(z0 - Half, CityCell) - 1; j <= FloorDiv(z1 - Half, CityCell) + 1; j++)
+            {
+                int lz = j * CityCell + Half;
+                for (int sg = FloorDiv(x0 - 12, SEG); sg <= FloorDiv(x1 + 12, SEG); sg++)
+                {
+                    float r = Hash.H2(sg, j * 89, Seed ^ 0xcac);
+                    if (r > 0.32f || !Restorable(sg, j * 89, 2)) continue;
+                    int x = sg * SEG + (int)(Hash.H2(j, sg, Seed) * 10);
+                    int lane = r < 0.16f ? -4 : 1;
+                    if (!In(x, lz + lane)) continue;
+                    var c = GetColumn(x, lz);
+                    if (c.Kind != ColumnKind.Highway && c.Kind != ColumnKind.Bridge) continue;
+                    int y = (c.Kind == ColumnKind.Bridge ? c.RoadH : c.H) + 1;
+                    float pr = Hash.H2(j * 5, sg, Seed ^ 4);
+                    list.Add(new VehicleSpawn { Key = VoxelStore.VoxelKey(x, y, lz + lane), Type = CarType(pr), Pos = new V3((x + 4.5f) * vs, y * vs, (lz + lane + 2) * vs), Yaw = lane < 0 ? 270 : 90, Paint = Paint(pr), Seed = sg * 37 + j });
+                }
+            }
+            // stadsstraten
+            for (int z = z0; z < z1; z++)
+                for (int x = x0; x < x1; x++)
+                {
+                    int sx = Mod(x + 4, Street), sz = Mod(z + 4, Street);
+                    bool ns = sx == 1 && Mod(z, 20) == 3 && sz >= 10 && Hash.H2(x, z, Seed ^ 0xcad) < 0.35f && Restorable(x, z, 3);
+                    bool ew = sz == 1 && Mod(x, 20) == 3 && sx >= 10 && Hash.H2(x, z, Seed ^ 0xcae) < 0.35f && Restorable(x, z, 4);
+                    if (!ns && !ew) continue;
+                    var c = GetColumn(x, z);
+                    if (c.Kind != ColumnKind.Street) continue;
+                    float pr = Hash.H2(z, x, Seed);
+                    list.Add(ns
+                        ? new VehicleSpawn { Key = VoxelStore.VoxelKey(x, c.H + 1, z), Type = CarType(pr), Pos = new V3((x + 2) * vs, (c.H + 1) * vs, (z + 4.5f) * vs), Yaw = 0, Paint = Paint(pr), Seed = x * 7 + z }
+                        : new VehicleSpawn { Key = VoxelStore.VoxelKey(x, c.H + 1, z) + 1, Type = CarType(pr), Pos = new V3((x + 4.5f) * vs, (c.H + 1) * vs, (z + 2) * vs), Yaw = 90, Paint = Paint(pr), Seed = x * 5 + z });
+                }
+            // parkeerplaatsen
+            for (int kz = FloorDiv(z0 - 4, Street) - 1; kz <= FloorDiv(z1 - 4, Street); kz++)
+                for (int kx = FloorDiv(x0 - 4, Street) - 1; kx <= FloorDiv(x1 - 4, Street); kx++)
+                {
+                    var lot = GetLot(kx, kz);
+                    if (lot == null || lot.Type != LotType.Parkeerplaats) continue;
+                    for (int row = 0; row < 3; row++)
+                        for (int k = 0; k < 6; k++)
+                        {
+                            if (Hash.H2(lot.Kx * 31 + row, lot.Kz * 17 + k, Seed ^ 0xca) > 0.45f || !Restorable(lot.Kx * 31 + row, lot.Kz * 17 + k, 5)) continue;
+                            int x = lot.X0 + k * 6 + 1, z = lot.Z0 + row * 12 + 2;
+                            if (!In(x, z)) continue;
+                            float pr = Hash.H2(k, row + lot.Kx, Seed);
+                            list.Add(new VehicleSpawn { Key = VoxelStore.VoxelKey(x, lot.Base + 1, z), Type = CarType(pr), Pos = new V3((x + 4.5f) * vs, (lot.Base + 1) * vs, (z + 2) * vs), Yaw = 90, Paint = Paint(pr), Seed = kx * 13 + kz * 7 + row * 3 + k });
+                        }
+                }
+            // boten aan de oever: per cel van 16 voxels één kandidaat
+            for (int gz = z0; gz < z1; gz += 16)
+                for (int gx = x0; gx < x1; gx += 16)
+                {
+                    int x = gx + (int)(Hash.H2(gx, gz, Seed ^ 0xb0a) * 16), z = gz + (int)(Hash.H2(gz, gx, Seed ^ 0xb0b) * 16);
+                    if (Hash.H2(x, z, Seed ^ 0xb0c) > 0.3f) continue;
+                    var c = GetColumn(x, z);
+                    if (c.H > World.Sea - 1 || c.Kind != ColumnKind.Nature) continue;     // moet in het water liggen
+                    // zoek land binnen 8 meter
+                    int landDir = -1;
+                    for (int dir = 0; dir < 4 && landDir < 0; dir++)
+                    {
+                        int dx = dir == 0 ? 1 : dir == 1 ? -1 : 0, dz = dir == 2 ? 1 : dir == 3 ? -1 : 0;
+                        for (int step = 2; step <= 16; step += 2) if (GetColumn(x + dx * step, z + dz * step).H > World.Sea) { landDir = dir; break; }
+                    }
+                    if (landDir < 0) continue;
+                    float yaw = landDir switch { 0 => 270, 1 => 90, 2 => 180, _ => 0 };     // met de neus van het land af
+                    var type = Hash.H2(z, x, Seed ^ 0xb0d) < 0.3f ? VehicleType.Motorboot : VehicleType.Roeiboot;
+                    list.Add(new VehicleSpawn { Key = VoxelStore.VoxelKey(x, World.Sea, z) + 2, Type = type, Pos = new V3((x + 0.5f) * vs, World.SeaLevelMeters - 0.15f, (z + 0.5f) * vs), Yaw = yaw, Paint = B.CarWhite, Seed = x * 3 + z });
+                }
+            return list;
+        }
 
         /// <summary>Autowrak van 4 × 9 × 3 voxels.</summary>
         static void Car(int x, int y, int z, bool ns, float r, ref ChunkWriter o)

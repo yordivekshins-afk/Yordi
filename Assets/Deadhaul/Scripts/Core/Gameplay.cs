@@ -106,6 +106,21 @@ namespace Deadhaul.Core
             Add(new ItemDef { Id = "doppen", Name = "Doppen", Kind = ItemKind.Misc, MaxStack = 999, Weight = 0.002f, IconBlock = B.Brass, Value = 1, Description = "Het geld van de nieuwe wereld." });
             Add(new ItemDef { Id = "akkergrond", Name = "Akkergrond", Kind = ItemKind.Block, MaxStack = 50, Weight = 1f, PlaceBlock = B.Farmland, IconBlock = B.Farmland, Value = 1 });
 
+            // voertuigonderdelen en vissen
+            Add(new ItemDef { Id = "accu", Name = "Auto-accu", Kind = ItemKind.Material, MaxStack = 1, Weight = 14f, IconBlock = B.Polymer, Value = 90, Description = "Nodig om een motor te starten." });
+            Add(new ItemDef { Id = "bougies", Name = "Bougies", Kind = ItemKind.Material, MaxStack = 4, Weight = 0.2f, IconBlock = B.Steel, Value = 40 });
+            Add(new ItemDef { Id = "band", Name = "Autoband", Kind = ItemKind.Material, MaxStack = 4, Weight = 9f, IconBlock = B.Tire, Value = 30 });
+            Add(new ItemDef { Id = "brandstofpomp", Name = "Brandstofpomp", Kind = ItemKind.Material, MaxStack = 1, Weight = 1.5f, IconBlock = B.Metal, Value = 70 });
+            Add(new ItemDef { Id = "jerrycan", Name = "Jerrycan benzine (20 l)", Kind = ItemKind.Material, MaxStack = 1, Weight = 16f, IconBlock = B.CarRed, Value = 60, Description = "Kijk naar een voertuig en druk op E om te tanken." });
+            Add(new ItemDef { Id = "hengel", Name = "Hengel", Kind = ItemKind.Tool, Weight = 0.8f, IconBlock = B.Wood, Value = 25, Description = "Linkermuis op water om uit te werpen, klik bij een beet." });
+            Add(new ItemDef { Id = "aas", Name = "Wormen (aas)", Kind = ItemKind.Material, MaxStack = 20, Weight = 0.01f, IconBlock = B.MutantFlesh, Value = 1, Description = "Vis bijt sneller. Vind ze door aarde te spitten." });
+            Add(new ItemDef { Id = "baars", Name = "Baars", Kind = ItemKind.Food, MaxStack = 6, Weight = 0.4f, Food = 12, SickChance = 0.3f, IconBlock = B.Steel, Value = 8 });
+            Add(new ItemDef { Id = "karper", Name = "Karper", Kind = ItemKind.Food, MaxStack = 6, Weight = 0.9f, Food = 16, SickChance = 0.3f, IconBlock = B.Khaki, Value = 10 });
+            Add(new ItemDef { Id = "snoek", Name = "Snoek", Kind = ItemKind.Food, MaxStack = 6, Weight = 1.6f, Food = 22, SickChance = 0.3f, IconBlock = B.OD, Value = 16 });
+            Add(new ItemDef { Id = "gloeivis", Name = "Gloeivis", Kind = ItemKind.Food, MaxStack = 6, Weight = 0.7f, Food = 14, SickChance = 0.6f, IconBlock = B.Glow, Value = 22, Description = "Gemuteerd. Je kunt hem eten… als je durft." });
+            Add(new ItemDef { Id = "oude_schoen", Name = "Oude schoen", Kind = ItemKind.Misc, MaxStack = 3, Weight = 0.5f, IconBlock = B.Leather, Value = 1 });
+            Add(new ItemDef { Id = "gebakken_vis", Name = "Gebakken vis", Kind = ItemKind.Food, MaxStack = 6, Weight = 0.4f, Food = 30, Water = 2, IconBlock = B.Leather, Value = 14 });
+
             Arsenal.Register(d => Add(d));
         }
 
@@ -274,6 +289,10 @@ namespace Deadhaul.Core
             new Recipe { Result = "verband", Count = 1, Needs = new[] { ("stof", 2) } },
             new Recipe { Result = "gebakken_vlees", Count = 1, Needs = new[] { ("vlees", 1) }, NeedsFire = true },
             new Recipe { Result = "brood", Count = 1, Needs = new[] { ("graan", 3) }, NeedsFire = true },
+            new Recipe { Result = "gebakken_vis", Count = 1, Needs = new[] { ("baars", 1) }, NeedsFire = true },
+            new Recipe { Result = "gebakken_vis", Count = 2, Needs = new[] { ("karper", 1) }, NeedsFire = true },
+            new Recipe { Result = "gebakken_vis", Count = 3, Needs = new[] { ("snoek", 1) }, NeedsFire = true },
+            new Recipe { Result = "hengel", Count = 1, Needs = new[] { ("hout", 2), ("stof", 2), ("schroot", 1) } },
             new Recipe { Result = "gebakken_aardappel", Count = 2, Needs = new[] { ("aardappel", 2) }, NeedsFire = true },
             new Recipe { Result = "soep", Count = 1, Needs = new[] { ("kool", 1), ("wortel", 1), ("tomaat", 1), ("water", 1) }, NeedsFire = true },
             new Recipe { Result = "winterjas", Count = 1, Needs = new[] { ("vacht", 3), ("stof", 4) } },
@@ -305,7 +324,7 @@ namespace Deadhaul.Core
     {
         static readonly (string id, int min, int max, float w)[] Huis =
             { ("bonen", 1, 2, 3), ("chips", 1, 2, 2), ("water", 1, 1, 3), ("frisdrank", 1, 2, 2), ("stof", 1, 3, 3), ("verband", 1, 1, 1.5f), ("batterij", 1, 2, 1.5f),
-              ("hout", 2, 5, 1), ("9mm", 4, 12, 0.6f), ("pijp", 1, 1, 0.4f), ("bijl", 1, 1, 0.3f), ("pistool", 1, 1, 0.15f), ("shotgun", 1, 1, 0.08f), ("12g", 3, 8, 0.4f),
+              ("hout", 2, 5, 1), ("9mm", 4, 12, 0.6f), ("hengel", 1, 1, 0.2f), ("aas", 2, 6, 0.3f), ("pijp", 1, 1, 0.4f), ("bijl", 1, 1, 0.3f), ("pistool", 1, 1, 0.15f), ("shotgun", 1, 1, 0.08f), ("12g", 3, 8, 0.4f),
               ("hoodie", 1, 1, 0.6f), ("jeans", 1, 1, 0.4f), ("joggingbroek", 1, 1, 0.4f), ("tshirt", 1, 1, 0.5f), ("sneakers", 1, 1, 0.5f), ("schoenen", 1, 1, 0.3f),
               ("muts", 1, 1, 0.4f), ("pet", 1, 1, 0.3f), ("winterjas", 1, 1, 0.2f), ("schoudertas", 1, 1, 0.3f), ("rugzak", 1, 1, 0.15f), ("bandana", 1, 1, 0.3f) };
         static readonly (string id, int min, int max, float w)[] Winkel =
@@ -321,7 +340,8 @@ namespace Deadhaul.Core
               ("grip_vert", 1, 1, 0.4f), ("sling", 1, 1, 0.5f), ("mag_pistool", 1, 1, 0.4f), ("legerkistjes", 1, 1, 0.3f), ("chestrig", 1, 1, 0.3f) };
         static readonly (string id, int min, int max, float w)[] Industrie =
             { ("schroot", 2, 6, 4), ("kruit", 1, 4, 2), ("rubber", 1, 3, 2), ("batterij", 1, 2, 1.5f), ("breekijzer", 1, 1, 0.6f), ("bijl", 1, 1, 0.5f), ("water", 1, 1, 1),
-              ("bouwhelm", 1, 1, 0.5f), ("hazmatpak", 1, 1, 0.25f), ("gasmasker", 1, 1, 0.3f), ("wandelschoenen", 1, 1, 0.4f), ("cargobroek", 1, 1, 0.4f) };
+              ("bouwhelm", 1, 1, 0.5f), ("hazmatpak", 1, 1, 0.25f), ("gasmasker", 1, 1, 0.3f), ("wandelschoenen", 1, 1, 0.4f), ("cargobroek", 1, 1, 0.4f),
+              ("accu", 1, 1, 0.5f), ("bougies", 1, 2, 0.8f), ("band", 1, 2, 0.6f), ("brandstofpomp", 1, 1, 0.4f), ("jerrycan", 1, 1, 0.7f), ("hengel", 1, 1, 0.3f) };
         public static readonly (string id, int min, int max, float w)[] Militair =
             { ("556", 20, 60, 4), ("762", 20, 60, 3), ("308", 5, 15, 1.5f), ("9mm", 15, 40, 2), ("m4", 1, 1, 1f), ("ak", 1, 1, 1f), ("mp5", 1, 1, 0.6f), ("geweer", 1, 1, 0.5f),
               ("platecarrier", 1, 1, 0.6f), ("helm", 1, 1, 0.8f), ("chestrig", 1, 1, 1f), ("legerrugzak", 1, 1, 0.6f), ("legerjas", 1, 1, 1f), ("legerbroek", 1, 1, 1f),

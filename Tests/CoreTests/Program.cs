@@ -373,6 +373,72 @@ static class Program
             Check(Farming.Grown(B.SeedCorn) == B.Corn && Farming.CanPlantOn(B.Farmland, B.Air), "zaailing groeit uit tot het juiste gewas");
         }
 
+        Console.WriteLine("Voertuigen, boten en vissen");
+        {
+            int cars = 0, boats = 0; VehicleSpawn? firstCar = null, firstBoat = null;
+            for (int cz = -30; cz <= 30; cz += 1)
+                for (int cx = -30; cx <= 30; cx += 1)
+                {
+                    if (cars > 20 && boats > 5) break;
+                    foreach (var sp in gen.VehicleSpawns(cx, cz))
+                    {
+                        if (Vehicles.Defs[sp.Type].Boat) { boats++; firstBoat ??= sp; } else { cars++; firstCar ??= sp; }
+                    }
+                }
+            Check(cars > 0 && boats > 0, $"redbare auto's ({cars}) en boten ({boats}) in de wereld");
+            var dup = new HashSet<long>(); bool unique = true;
+            for (int cz = 18; cz < 24; cz++) for (int cx = 18; cx < 24; cx++) foreach (var sp in gen.VehicleSpawns(cx, cz)) unique &= dup.Add(sp.Key);
+            Check(unique, "elk voertuig bestaat maar één keer (geen dubbele over chunkranden)");
+
+            var v = Vehicles.Create(firstCar.Value);
+            Check(v.MissingParts().Count > 0 && !v.Drivable, $"een wrak mist onderdelen: {string.Join(", ", v.MissingParts())}");
+            foreach (var p in v.Def.Parts) v.PartOk[(int)p] = true;
+            v.Fuel = 20;
+            Check(v.Drivable, "met alle onderdelen en benzine is hij rijklaar");
+
+            // proefrit op een vlakke betonplaat met een muur
+            var store = new VoxelStore();
+            for (int cz = -1; cz <= 2; cz++) for (int cx = -1; cx <= 1; cx++)
+            {
+                var pad = new byte[World.PadVolume];
+                for (int pz = 0; pz < World.Pad; pz++) for (int px = 0; px < World.Pad; px++) pad[World.IdxPad(px, 20, pz)] = B.Concrete;
+                store.Add(cx, cz, pad);
+            }
+            for (int x = -8; x <= 8; x++) for (int y = 21; y <= 24; y++) store.Set(x, y, 70, B.Concrete);   // muur op 35 m
+            v.Pos = new V3(0, 21 * World.VoxelSize, 0); v.Yaw = 0; v.Occupied = true; v.Speed = 0;
+            float driven = 0, maxSpeed = 0, crashSpeed = 0;
+            for (int i = 0; i < 60 * 8; i++)
+            {
+                driven += VehiclePhysics.Step(v, new VehiclePhysics.Input { Throttle = 1 }, 1f / 60f, store, out float crash);
+                maxSpeed = MathF.Max(maxSpeed, v.Speed); crashSpeed = MathF.Max(crashSpeed, crash);
+            }
+            Check(maxSpeed > 12 && crashSpeed > 5 && v.Pos.Z < 35f, $"auto trekt op tot {maxSpeed * 3.6f:0} km/u en botst tegen de muur ({crashSpeed * 3.6f:0} km/u, z={v.Pos.Z:0.0} m)");
+            Check(v.Fuel < 20, $"verbruikt benzine ({20 - v.Fuel:0.00} l)");
+
+            // boot: alleen op het water
+            var water = new VoxelStore();
+            for (int cz = -1; cz <= 1; cz++) for (int cx = -1; cx <= 1; cx++)
+            {
+                var pad = new byte[World.PadVolume];
+                for (int pz = 0; pz < World.Pad; pz++) for (int px = 0; px < World.Pad; px++)
+                {
+                    int wx = cx * World.ChunkSize - 1 + px;
+                    for (int y = 0; y < 18; y++) pad[World.IdxPad(px, y, pz)] = B.Sand;
+                    for (int y = 18; y <= World.Sea; y++) pad[World.IdxPad(px, y, pz)] = wx < 20 ? B.Water : B.Sand;   // strand vanaf x = 10 m
+                }
+                water.Add(cx, cz, pad);
+            }
+            var boat = Vehicles.Create(new VehicleSpawn { Type = VehicleType.Roeiboot, Pos = new V3(0, World.SeaLevelMeters, 0), Yaw = 90 });
+            boat.Occupied = true;
+            for (int i = 0; i < 60 * 20; i++) VehiclePhysics.Step(boat, new VehiclePhysics.Input { Throttle = 1 }, 1f / 60f, water, out _);
+            Check(boat.Drivable && boat.Pos.X > 3 && boat.Pos.X < 10, $"roeiboot vaart en loopt vast op het strand (x={boat.Pos.X:0.0} m)");
+
+            var rng = new Random(4);
+            int glow = 0; for (int i = 0; i < 50; i++) if (Fishing.Catch(0.5f, rng) == "gloeivis") glow++;
+            Check(glow > 20 && Fishing.Catch(0f, rng) != "gloeivis", $"in stralingswater vang je vooral gloeivis ({glow}/50)");
+            Check(Fishing.WaitTime(true, rng) < 10.01f, "aas laat vis sneller bijten");
+        }
+
         if (args.Length > 0 && args[0] == "map")
         {
             string path = args.Length > 1 ? args[1] : "wereldkaart.png";
