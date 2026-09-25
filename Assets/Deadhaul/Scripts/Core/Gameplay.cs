@@ -17,6 +17,7 @@ namespace Deadhaul.Core
         public float SickChance;         // kans op ziekte bij eten (rauw vlees)
         public byte PlaceBlock;          // voor bouwmateriaal: welk blok je neerzet
         public float MeleeDamage, MineSpeed = 1f, WoodSpeed = 1f;
+        public float MeleeInterval = 0.55f, BackstabMul = 2.5f;   // tijd tussen slagen; schade bij een sluipaanval
         public float GunDamage;          // voor vuurwapens: schade per kogel (per hagelkorrel bij shotguns)
         public string AmmoId;
         public int MagSize;
@@ -91,6 +92,8 @@ namespace Deadhaul.Core
             // gereedschap en wapens
             Add(new ItemDef { Id = "pijp", Name = "Loden pijp", Kind = ItemKind.Weapon, Weight = 1.5f, MeleeDamage = 28, MineSpeed = 1.3f, IconBlock = B.Gunmetal });
             Add(new ItemDef { Id = "bijl", Name = "Bijl", Kind = ItemKind.Tool, Weight = 1.8f, MeleeDamage = 32, MineSpeed = 1.2f, WoodSpeed = 3.5f, IconBlock = B.Blade });
+            Add(new ItemDef { Id = "mes", Name = "Gevechtsmes", Kind = ItemKind.Weapon, Weight = 0.3f, MeleeDamage = 30, MeleeInterval = 0.32f, BackstabMul = 8f, IconBlock = B.Blade, Description = "Snel en stil. Van achteren of ongezien: één steek is genoeg." });
+            Add(new ItemDef { Id = "machete", Name = "Machete", Kind = ItemKind.Weapon, Weight = 0.7f, MeleeDamage = 42, MeleeInterval = 0.5f, BackstabMul = 4f, WoodSpeed = 2.2f, IconBlock = B.Blade, Description = "Hakt door struiken, hout en ghouls." });
             Add(new ItemDef { Id = "breekijzer", Name = "Breekijzer", Kind = ItemKind.Tool, Weight = 1.6f, MeleeDamage = 24, MineSpeed = 3f, IconBlock = B.Rust, Description = "Sloopt steen en metaal veel sneller." });
             // gewassen: eten en zaden
             string[] cropNames = { "Aardappel", "Graan", "Maïs", "Kool", "Wortel", "Tomaat", "Pompoen" };
@@ -301,6 +304,10 @@ namespace Deadhaul.Core
             new Recipe { Result = "kampvuur", Count = 1, Needs = new[] { ("hout", 4), ("steen", 3) } },
             new Recipe { Result = "bijl", Count = 1, Needs = new[] { ("hout", 2), ("schroot", 3) } },
             new Recipe { Result = "breekijzer", Count = 1, Needs = new[] { ("schroot", 5) } },
+            new Recipe { Result = "mes", Count = 1, Needs = new[] { ("schroot", 2), ("hout", 1), ("stof", 1) } },
+            new Recipe { Result = "machete", Count = 1, Needs = new[] { ("schroot", 4), ("hout", 1), ("stof", 1) } },
+            new Recipe { Result = "boog", Count = 1, Needs = new[] { ("hout", 4), ("stof", 3) } },
+            new Recipe { Result = "pijl", Count = 6, Needs = new[] { ("hout", 1), ("schroot", 1), ("stof", 1) } },
             new Recipe { Result = "9mm", Count = 6, Needs = new[] { ("schroot", 1), ("kruit", 2) } },
             new Recipe { Result = "308", Count = 3, Needs = new[] { ("schroot", 1), ("kruit", 3) } },
         };
@@ -325,13 +332,13 @@ namespace Deadhaul.Core
     {
         static readonly (string id, int min, int max, float w)[] Huis =
             { ("bonen", 1, 2, 3), ("chips", 1, 2, 2), ("water", 1, 1, 3), ("frisdrank", 1, 2, 2), ("stof", 1, 3, 3), ("verband", 1, 1, 1.5f), ("batterij", 1, 2, 1.5f),
-              ("hout", 2, 5, 1), ("9mm", 4, 12, 0.6f), ("hengel", 1, 1, 0.2f), ("aas", 2, 6, 0.3f), ("pijp", 1, 1, 0.4f), ("bijl", 1, 1, 0.3f), ("pistool", 1, 1, 0.15f), ("shotgun", 1, 1, 0.08f), ("12g", 3, 8, 0.4f),
+              ("hout", 2, 5, 1), ("9mm", 4, 12, 0.6f), ("hengel", 1, 1, 0.2f), ("aas", 2, 6, 0.3f), ("pijp", 1, 1, 0.4f), ("bijl", 1, 1, 0.3f), ("mes", 1, 1, 0.35f), ("pistool", 1, 1, 0.15f), ("shotgun", 1, 1, 0.08f), ("12g", 3, 8, 0.4f),
               ("hoodie", 1, 1, 0.6f), ("jeans", 1, 1, 0.4f), ("joggingbroek", 1, 1, 0.4f), ("tshirt", 1, 1, 0.5f), ("sneakers", 1, 1, 0.5f), ("schoenen", 1, 1, 0.3f),
               ("muts", 1, 1, 0.4f), ("pet", 1, 1, 0.3f), ("winterjas", 1, 1, 0.2f), ("schoudertas", 1, 1, 0.3f), ("rugzak", 1, 1, 0.15f), ("bandana", 1, 1, 0.3f) };
         static readonly (string id, int min, int max, float w)[] Winkel =
             { ("bonen", 1, 3, 4), ("chips", 1, 3, 4), ("water", 1, 2, 4), ("frisdrank", 1, 3, 3), ("batterij", 1, 3, 2), ("stof", 1, 2, 1),
               ("cargobroek", 1, 1, 0.6f), ("wandelschoenen", 1, 1, 0.5f), ("sneakers", 1, 1, 0.6f), ("rugzak", 1, 1, 0.5f), ("hoodie", 1, 1, 0.6f), ("winterjas", 1, 1, 0.4f),
-              ("jas", 1, 1, 0.4f), ("schoudertas", 1, 1, 0.5f) };
+              ("jas", 1, 1, 0.4f), ("schoudertas", 1, 1, 0.5f), ("boog", 1, 1, 0.25f), ("pijl", 4, 12, 0.6f), ("mes", 1, 1, 0.3f), ("machete", 1, 1, 0.2f) };
         static readonly (string id, int min, int max, float w)[] Apotheek =
             { ("verband", 1, 3, 4), ("medkit", 1, 1, 1.5f), ("antibiotica", 1, 2, 2), ("water", 1, 1, 1), ("stof", 1, 3, 1), ("gasmasker", 1, 1, 0.2f) };
         static readonly (string id, int min, int max, float w)[] Politie =
@@ -340,14 +347,14 @@ namespace Deadhaul.Core
               ("demper_9mm", 1, 1, 0.35f), ("reddot", 1, 1, 0.5f), ("granaat", 1, 2, 0.4f), ("holo", 1, 1, 0.35f), ("wapenlamp", 1, 1, 0.5f), ("laser", 1, 1, 0.4f),
               ("grip_vert", 1, 1, 0.4f), ("sling", 1, 1, 0.5f), ("mag_pistool", 1, 1, 0.4f), ("legerkistjes", 1, 1, 0.3f), ("chestrig", 1, 1, 0.3f) };
         static readonly (string id, int min, int max, float w)[] Industrie =
-            { ("schroot", 2, 6, 4), ("kruit", 1, 4, 2), ("rubber", 1, 3, 2), ("batterij", 1, 2, 1.5f), ("breekijzer", 1, 1, 0.6f), ("bijl", 1, 1, 0.5f), ("water", 1, 1, 1),
+            { ("schroot", 2, 6, 4), ("kruit", 1, 4, 2), ("rubber", 1, 3, 2), ("batterij", 1, 2, 1.5f), ("breekijzer", 1, 1, 0.6f), ("bijl", 1, 1, 0.5f), ("machete", 1, 1, 0.3f), ("water", 1, 1, 1),
               ("bouwhelm", 1, 1, 0.5f), ("hazmatpak", 1, 1, 0.25f), ("gasmasker", 1, 1, 0.3f), ("wandelschoenen", 1, 1, 0.4f), ("cargobroek", 1, 1, 0.4f),
               ("accu", 1, 1, 0.5f), ("bougies", 1, 2, 0.8f), ("band", 1, 2, 0.6f), ("brandstofpomp", 1, 1, 0.4f), ("jerrycan", 1, 1, 0.7f), ("hengel", 1, 1, 0.3f) };
         public static readonly (string id, int min, int max, float w)[] Militair =
             { ("556", 20, 60, 4), ("762", 20, 60, 3), ("308", 5, 15, 1.5f), ("9mm", 15, 40, 2), ("m4", 1, 1, 1f), ("ak", 1, 1, 1f), ("mp5", 1, 1, 0.6f), ("geweer", 1, 1, 0.5f),
               ("platecarrier", 1, 1, 0.6f), ("helm", 1, 1, 0.8f), ("chestrig", 1, 1, 1f), ("legerrugzak", 1, 1, 0.6f), ("legerjas", 1, 1, 1f), ("legerbroek", 1, 1, 1f),
               ("legerkistjes", 1, 1, 1f), ("gasmasker", 1, 1, 0.6f), ("demper_geweer", 1, 1, 0.4f), ("compensator", 1, 1, 0.6f), ("scope4x", 1, 1, 0.5f),
-              ("scope8x", 1, 1, 0.2f), ("holo", 1, 1, 0.6f), ("grip_hoek", 1, 1, 0.5f), ("grip_vert", 1, 1, 0.5f), ("mag_groot", 1, 1, 0.5f), ("medkit", 1, 1, 1f), ("granaat", 1, 3, 1.2f) };
+              ("scope8x", 1, 1, 0.2f), ("holo", 1, 1, 0.6f), ("grip_hoek", 1, 1, 0.5f), ("grip_vert", 1, 1, 0.5f), ("mag_groot", 1, 1, 0.5f), ("medkit", 1, 1, 1f), ("granaat", 1, 3, 1.2f), ("mes", 1, 1, 0.8f), ("kruisboog", 1, 1, 0.25f), ("pijl", 6, 18, 0.5f) };
 
         static readonly (string id, int min, int max, float w)[] Koelkast =
             { ("frisdrank", 1, 3, 4), ("water", 1, 2, 3), ("bonen", 1, 2, 2), ("chips", 1, 2, 1), ("tomaat", 1, 3, 1), ("kool", 1, 1, 0.5f), ("vlees", 1, 1, 0.4f), ("antibiotica", 1, 1, 0.2f) };

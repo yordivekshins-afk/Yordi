@@ -105,7 +105,7 @@ namespace Deadhaul.Core
         public V3 Pos, Vel;
         public float Damage, Penetration, Traveled, Life;
         public int Owner;
-        public bool Tracer, Alive;
+        public bool Tracer, Alive, Arrow;
     }
 
     public enum BulletEventType : byte { Impact, Actor, Glass, Penetrate }
@@ -113,9 +113,10 @@ namespace Deadhaul.Core
     public struct BulletEvent
     {
         public BulletEventType Type;
-        public V3 Pos;
+        public V3 Pos, Dir;
         public int Nx, Ny, Nz;
         public int X, Y, Z;          // voxel
+        public bool Arrow;
         public byte Block;
         public Actor Victim;
         public HitZone Zone;
@@ -155,7 +156,7 @@ namespace Deadhaul.Core
             return new Bullet
             {
                 Pos = origin, Vel = new V3(dir.X / l * st.Velocity, dir.Y / l * st.Velocity, dir.Z / l * st.Velocity),
-                Damage = st.Damage, Penetration = st.Penetration, Owner = owner, Tracer = tracer, Alive = true
+                Damage = st.Damage, Penetration = st.Penetration, Owner = owner, Tracer = tracer, Alive = true, Arrow = st.Arrow
             };
         }
 
@@ -176,14 +177,14 @@ namespace Deadhaul.Core
                 {
                     var p = origin + dir * at;
                     float dmg = RangeFalloff(b) * b.Damage;
-                    events.Add(new BulletEvent { Type = BulletEventType.Actor, Pos = p, Victim = victim, Zone = zone, Damage = dmg, Owner = b.Owner });
+                    events.Add(new BulletEvent { Type = BulletEventType.Actor, Pos = p, Dir = dir, Victim = victim, Zone = zone, Damage = dmg, Owner = b.Owner, Arrow = b.Arrow });
                     b.Alive = false; b.Pos = p;
                     return;
                 }
                 if (!vh.Hit) { origin = origin + dir * remaining; b.Traveled += remaining; remaining = 0; break; }
                 var hp = origin + dir * vh.Distance;
                 float dens = Density(vh.Block);
-                var ev = new BulletEvent { Pos = hp, Nx = vh.Nx, Ny = vh.Ny, Nz = vh.Nz, X = vh.X, Y = vh.Y, Z = vh.Z, Block = vh.Block, Owner = b.Owner };
+                var ev = new BulletEvent { Pos = hp, Dir = dir, Nx = vh.Nx, Ny = vh.Ny, Nz = vh.Nz, X = vh.X, Y = vh.Y, Z = vh.Z, Block = vh.Block, Owner = b.Owner, Arrow = b.Arrow };
                 if (vh.Block == B.Glass)
                 {
                     ev.Type = BulletEventType.Glass; events.Add(ev);

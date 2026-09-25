@@ -22,6 +22,7 @@ namespace Deadhaul.Core
         public float ArmorBody;
         public bool Passive;                // vlucht altijd (dieren)
         public bool Nocturnal;
+        public bool UsesCover;              // zoekt dekking bij herladen of als hij geraakt wordt
         public string[] Drops;              // loot bij de dood (tabel-ID's of item-ID's)
     }
 
@@ -29,13 +30,13 @@ namespace Deadhaul.Core
     {
         public static readonly Dictionary<NpcType, NpcDef> Defs = new Dictionary<NpcType, NpcDef>
         {
-            [NpcType.Aaseter] = new NpcDef { Type = NpcType.Aaseter, Name = "Aaseter", Faction = Faction.Raider, Health = 70, Speed = 1.6f, RunSpeed = 5.6f, MeleeDamage = 14, FleeBelow = 0.3f, Drops = new[] { "bonen", "verband", "stof", "9mm", "pijp", "jeans", "sneakers" } },
-            [NpcType.Bendelid] = new NpcDef { Type = NpcType.Bendelid, Name = "Bendelid", Faction = Faction.Raider, Health = 95, Speed = 1.5f, RunSpeed = 5.2f, MeleeDamage = 16, Weapon = "pistool", Accuracy = 3.2f, PreferredRange = 12, FleeBelow = 0.2f, ArmorBody = 0.15f, Drops = new[] { "9mm", "762", "verband", "water", "chestrig", "cargobroek", "legerkistjes" } },
-            [NpcType.Scherpschutter] = new NpcDef { Type = NpcType.Scherpschutter, Name = "Scherpschutter", Faction = Faction.Raider, Health = 80, Speed = 1.4f, RunSpeed = 4.8f, MeleeDamage = 12, Weapon = "geweer", Accuracy = 1.1f, PreferredRange = 55, SightDay = 110, SightNight = 30, FleeBelow = 0.35f, Drops = new[] { "308", "scope4x", "water", "legerjas" } },
+            [NpcType.Aaseter] = new NpcDef { Type = NpcType.Aaseter, Name = "Aaseter", Faction = Faction.Raider, Health = 70, Accuracy = 2.6f, PreferredRange = 18, Speed = 1.6f, RunSpeed = 5.6f, MeleeDamage = 14, FleeBelow = 0.3f, Drops = new[] { "bonen", "verband", "stof", "9mm", "pijp", "jeans", "sneakers" } },
+            [NpcType.Bendelid] = new NpcDef { UsesCover = true, Type = NpcType.Bendelid, Name = "Bendelid", Faction = Faction.Raider, Health = 95, Speed = 1.5f, RunSpeed = 5.2f, MeleeDamage = 16, Weapon = "pistool", Accuracy = 3.2f, PreferredRange = 12, FleeBelow = 0.2f, ArmorBody = 0.15f, Drops = new[] { "9mm", "762", "verband", "water", "chestrig", "cargobroek", "legerkistjes" } },
+            [NpcType.Scherpschutter] = new NpcDef { UsesCover = true, Type = NpcType.Scherpschutter, Name = "Scherpschutter", Faction = Faction.Raider, Health = 80, Speed = 1.4f, RunSpeed = 4.8f, MeleeDamage = 12, Weapon = "geweer", Accuracy = 1.1f, PreferredRange = 55, SightDay = 110, SightNight = 30, FleeBelow = 0.35f, Drops = new[] { "308", "scope4x", "water", "legerjas" } },
             [NpcType.Ghoul] = new NpcDef { Type = NpcType.Ghoul, Name = "Ghoul", Faction = Faction.Mutant, Health = 85, Speed = 1.8f, RunSpeed = 7.2f, MeleeDamage = 18, MeleeInterval = 0.8f, SightDay = 35, SightNight = 45, Hearing = 1.6f, Nocturnal = true, Drops = new[] { "stof", "jodium" } },
             [NpcType.Brute] = new NpcDef { Type = NpcType.Brute, Name = "Brute", Faction = Faction.Mutant, Health = 380, Speed = 1.3f, RunSpeed = 4.4f, Height = 2.7f, Radius = 0.55f, MeleeDamage = 42, MeleeRange = 2.4f, MeleeInterval = 1.8f, SightDay = 40, SightNight = 40, ArmorBody = 0.2f, Drops = new[] { "jodium", "schroot", "medkit" } },
             [NpcType.Mutantwolf] = new NpcDef { Type = NpcType.Mutantwolf, Name = "Mutantwolf", Faction = Faction.Mutant, Health = 60, Speed = 2.2f, RunSpeed = 8.4f, Height = 0.95f, Radius = 0.42f, MeleeDamage = 13, MeleeRange = 1.5f, MeleeInterval = 0.7f, SightDay = 45, SightNight = 45, Hearing = 2f, Drops = new[] { "vlees", "vlees" } },
-            [NpcType.Overlever] = new NpcDef { Type = NpcType.Overlever, Name = "Overlever", Faction = Faction.Overlever, Health = 90, Speed = 1.5f, RunSpeed = 5.4f, MeleeDamage = 10, SightDay = 55, SightNight = 25, FleeBelow = 0.25f, Accuracy = 2.4f, PreferredRange = 16, Drops = new[] { "doppen", "brood", "water" } },
+            [NpcType.Overlever] = new NpcDef { UsesCover = true, Type = NpcType.Overlever, Name = "Overlever", Faction = Faction.Overlever, Health = 90, Speed = 1.5f, RunSpeed = 5.4f, MeleeDamage = 10, SightDay = 55, SightNight = 25, FleeBelow = 0.25f, Accuracy = 2.4f, PreferredRange = 16, Drops = new[] { "doppen", "brood", "water" } },
             [NpcType.Hert] = new NpcDef { Type = NpcType.Hert, Name = "Hert", Faction = Faction.Dier, Health = 55, Speed = 1.3f, RunSpeed = 9f, Height = 1.4f, Radius = 0.45f, SightDay = 50, SightNight = 20, Hearing = 2.2f, Passive = true, Drops = new[] { "vlees", "vlees", "vlees", "vacht" } },
         };
 
@@ -71,6 +72,9 @@ namespace Deadhaul.Core
         public bool Sleeping, Working;
         public string Line;                 // wat hij zegt als je hem aanspreekt
         public V3 LastSeen;
+        public V3 Cover;                    // dekkingspunt
+        public bool HasCover, InCover;
+        public float CoverSearch, CoverHold, HurtTime = 99f;
         public Stack Weapon;
         public bool Looted;
         public float DeadTime;
@@ -92,6 +96,7 @@ namespace Deadhaul.Core
         {
             float d = base.TakeDamage(dmg, zone, attacker);
             Sleeping = false;
+            HurtTime = 0;
             if (Alive)
             {
                 Awareness = 1f;
@@ -127,6 +132,8 @@ namespace Deadhaul.Core
             if (!n.Alive) { n.State = NpcState.Dood; n.DeadTime += dt; Physics(n, dt, ctx, new V3(0, 0, 0), 0, false); return; }
             n.StateTime += dt;
             n.AttackCooldown -= dt;
+            n.HurtTime += dt;
+            n.CoverSearch -= dt;
             var def = n.Def;
 
             var seen = Sense(n, dt, ctx, out var target);
@@ -193,8 +200,29 @@ namespace Deadhaul.Core
                     bool ranged = !n.Weapon.Empty && n.Weapon.Def.GunDamage > 0;
                     if (ranged && d > 3f)
                     {
-                        // op afstand blijven, zijwaarts bewegen, schieten als hij zichtbaar is
+                        // dekking: bij herladen, na een treffer of zwaargewond
                         float pref = def.PreferredRange;
+                        bool wantCover = def.UsesCover && (n.AttackCooldown > 0.9f || n.HurtTime < 2.5f || n.Health < n.MaxHealth * 0.5f);
+                        if (wantCover) n.CoverHold = 2.5f; else n.CoverHold -= dt;
+                        if (def.UsesCover && n.CoverHold > 0)
+                        {
+                            if ((!n.HasCover || !CoverBlocks(n.Cover, target, ctx)) && n.CoverSearch <= 0)
+                            {
+                                n.CoverSearch = 1.2f;
+                                n.HasCover = FindCover(n, target, ctx, out n.Cover);
+                            }
+                        }
+                        else { n.HasCover = false; n.InCover = false; }
+                        if (n.HasCover && n.CoverHold > 0)
+                        {
+                            var tc = n.Cover - n.Pos; tc.Y = 0;
+                            n.InCover = tc.Length < 0.5f;
+                            if (!n.InCover) { move = tc; speed = def.RunSpeed; run = true; n.Yaw = MathF.Atan2(tc.X, tc.Z) * 57.2958f; }
+                            // vanuit dekking terugschieten als hij kan kijken
+                            if (seen == target && n.AttackCooldown <= 0 && n.InCover) Shoot(n, target, d, ctx);
+                            break;
+                        }
+                        // op afstand blijven, zijwaarts bewegen, schieten als hij zichtbaar is
                         if (d > pref * 1.3f) { move = to; speed = def.RunSpeed * 0.8f; }
                         else if (d < pref * 0.6f) { move = n.Pos - target.Pos; speed = def.Speed * 1.6f; }
                         else
@@ -276,6 +304,12 @@ namespace Deadhaul.Core
             n.AttackCooldown = Math.Max(st.Interval, (0.35f + (float)ctx.Rng.NextDouble() * 0.6f) * burst) + (dist > 30 ? 0.6f : 0);
             var origin = new V3(n.Pos.X, n.Pos.Y + n.Height * 0.82f, n.Pos.Z);
             var aim = target.Chest - origin;
+            if (st.Arrow)
+            {
+                // pijlen vallen: hoger mikken naarmate het doel verder weg is
+                float tof = aim.Length / Math.Max(1f, st.Velocity);
+                aim.Y += 0.5f * Ballistics.Gravity * tof * tof;
+            }
             // afwijking groeit met afstand, beweging en duisternis; sluipen maakt je een lastiger doelwit
             float spread = n.Def.Accuracy * (1 + dist / 45f) * (ctx.Daylight < 0.3f ? 1.6f : 1f) * (target == ctx.Player && ctx.PlayerCrouching ? 1.25f : 1f);
             float rad = spread * 0.01745f;
@@ -286,6 +320,70 @@ namespace Deadhaul.Core
         }
 
         static float Gauss(Random r) => (float)((r.NextDouble() + r.NextDouble() + r.NextDouble()) / 3.0 - 0.5) * 2f;
+
+        /// <summary>
+        /// Sluipaanval mogelijk? Slapend, nog niet gealarmeerd, of van achteren besprongen terwijl
+        /// hij niet met jou in gevecht is.
+        /// </summary>
+        public static bool Unaware(Npc n, V3 attacker)
+        {
+            if (!n.Alive) return false;
+            if (n.Sleeping) return true;
+            float yaw = n.Yaw * 0.0174533f;
+            float fx = MathF.Sin(yaw), fz = MathF.Cos(yaw);
+            float dx = attacker.X - n.Pos.X, dz = attacker.Z - n.Pos.Z, l = MathF.Sqrt(dx * dx + dz * dz) + 1e-5f;
+            bool behind = (fx * dx + fz * dz) / l < -0.3f;
+            if (n.State == NpcState.Aanvallen) return behind && n.SeenId < 0;
+            return n.Awareness < 1f || behind;
+        }
+
+        /// <summary>Blokkeert de wereld de lijn van dit punt (borsthoogte) naar het hoofd van de vijand?</summary>
+        public static bool CoverBlocks(V3 p, Actor enemy, AiContext ctx)
+        {
+            var eye = new V3(p.X, p.Y + 1.0f, p.Z);
+            var to = enemy.Head - eye;
+            float len = to.Length;
+            if (len < 2f) return false;
+            var hit = ctx.Store.Raycast(eye, new V3(to.X / len, to.Y / len, to.Z / len), len, false);
+            return hit.Hit && hit.Distance < len - 0.6f;
+        }
+
+        /// <summary>
+        /// Zoekt een plek in de buurt waar een muur, auto of heuvel tussen hem en de vijand zit:
+        /// staanplaats met vaste grond, twee blokken vrij, niet te dicht bij de vijand.
+        /// </summary>
+        public static bool FindCover(Npc n, Actor enemy, AiContext ctx, out V3 cover)
+        {
+            cover = n.Pos;
+            float best = float.MaxValue;
+            float vs = World.VoxelSize;
+            int baseY = (int)MathF.Floor(n.Pos.Y / vs + 0.01f);
+            float[] radii = { 1.5f, 2.5f, 4f, 6f, 8.5f };
+            for (int ri = 0; ri < radii.Length; ri++)
+                for (int k = 0; k < 16; k++)
+                {
+                    float a = (k + (ri & 1) * 0.5f) / 16f * MathF.PI * 2;
+                    float px = n.Pos.X + MathF.Cos(a) * radii[ri], pz = n.Pos.Z + MathF.Sin(a) * radii[ri];
+                    int vx = (int)MathF.Floor(px / vs), vz = (int)MathF.Floor(pz / vs);
+                    int gy = int.MinValue;
+                    for (int y = baseY + 2; y >= baseY - 3; y--)
+                        if (Blocks.Solid[ctx.Store.Get(vx, y - 1, vz)] && !Blocks.Solid[ctx.Store.Get(vx, y, vz)] && !Blocks.Solid[ctx.Store.Get(vx, y + 1, vz)] && !Blocks.Solid[ctx.Store.Get(vx, y + 2, vz)]) { gy = y; break; }
+                    if (gy == int.MinValue) continue;
+                    var p = new V3((vx + 0.5f) * vs, gy * vs + 0.02f, (vz + 0.5f) * vs);
+                    float de = Dist(p, enemy.Pos);
+                    if (de < 5f) continue;
+                    if (!CoverBlocks(p, enemy, ctx)) continue;
+                    // zonder padzoeken: in een rechte lijn bereikbaar (lage treden mogen)
+                    var from = new V3(n.Pos.X, n.Pos.Y + 1.1f, n.Pos.Z);
+                    var walk = new V3(p.X - n.Pos.X, 0, p.Z - n.Pos.Z);
+                    float wl = walk.Length;
+                    if (wl > 0.3f && ctx.Store.Raycast(from, new V3(walk.X / wl, 0, walk.Z / wl), wl, false).Hit) continue;
+                    // dichtbij is beter; niet naar de vijand toe rennen
+                    float score = Dist(p, n.Pos) + Math.Max(0, Dist(n.Pos, enemy.Pos) - de) * 1.5f;
+                    if (score < best) { best = score; cover = p; }
+                }
+            return best < float.MaxValue;
+        }
 
         public static bool CanSee(Npc n, Actor a, float d, AiContext ctx)
         {

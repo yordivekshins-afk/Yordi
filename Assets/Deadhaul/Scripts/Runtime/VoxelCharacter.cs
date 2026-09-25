@@ -265,6 +265,16 @@ namespace Deadhaul
                     for (int y = 0; y < sy; y++) for (int x = 0; x < sx; x++) g[x + sx * (y + sy * 1)] = B.Wood;
                     for (int y = 8; y < 12; y++) for (int z = 2; z < 5; z++) for (int x = 0; x < sx; x++) g[x + sx * (y + sy * z)] = B.Blade;
                     break;
+                case "mes":
+                case "machete":
+                {
+                    int blade = def.Id == "mes" ? 6 : 12;
+                    sx = 1; sy = 4 + blade + 1; sz = def.Id == "mes" ? 2 : 3; g = new byte[sx * sy * sz];
+                    for (int y = 0; y < 4; y++) for (int z = 0; z < sz; z++) g[sx * (y + sy * z)] = def.Id == "mes" ? B.Polymer : B.Leather;   // heft
+                    for (int z = 0; z < sz; z++) g[sx * (4 + sy * z)] = B.Steel;                                                            // stootplaat
+                    for (int y = 5; y < sy; y++) for (int z = 0; z < sz; z++) if (!(y == sy - 1 && z == 0)) g[sx * (y + sy * z)] = B.Blade;   // lemmet met punt
+                    break;
+                }
                 default: // pijp, breekijzer
                     sx = 2; sy = 14; sz = 2; g = new byte[sx * sy * sz];
                     byte c = def.Id == "breekijzer" ? B.Rust : B.Gunmetal;

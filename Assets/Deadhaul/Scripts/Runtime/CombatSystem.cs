@@ -41,7 +41,11 @@ namespace Deadhaul
             public Transform Muzzle;
             public List<Stack> Loot;
             public float GrowlTimer;
+            public int Arrows;              // pijlen in het lichaam, te recupereren bij het lijk
         }
+
+        const int MaxStuckArrows = 60;
+        readonly List<Transform> stuckArrows = new List<Transform>();
 
         public ActorWorld Actors { get; } = new ActorWorld();
         public NoiseEvents Noise { get; } = new NoiseEvents();
@@ -230,9 +234,14 @@ namespace Deadhaul
                         n.Weapon = Loot.MakeItem(guns[rng.Next(guns.Length)], rng);
                         n.Weapon.Ammo = Arsenal.Stats(n.Weapon).MagSize;
                     }
-                    else if (type == NpcType.Aaseter) n.Weapon = new Stack(rng.NextDouble() < 0.5 ? "pijp" : "bijl", 1);
+                    else if (type == NpcType.Aaseter)
+                    {
+                        double r = rng.NextDouble();
+                        n.Weapon = r < 0.3 ? new Stack("boog", 1) { Ammo = 1 } : new Stack(r < 0.55 ? "mes" : r < 0.8 ? "pijp" : "bijl", 1);
+                    }
                     v.Loot = new List<Stack>();
                     foreach (var s in eq.Slots) if (!s.Empty && rng.NextDouble() < 0.45) v.Loot.Add(s);
+                    if (n.Weapon.Id == "boog") v.Loot.Add(new Stack("pijl", rng.Next(3, 9)));
                     var skin = rng.NextDouble() < 0.5 ? B.Skin : B.SkinDark;
                     v.Human = VoxelCharacter.Build(v.Root, VoxelCharacter.Look.FromEquipment(eq, skin, B.Hair));
                     v.Muzzle = v.Human.SetTool(n.Weapon, out _);
@@ -329,7 +338,7 @@ namespace Deadhaul
                         Fire(n.FireOrigin, dir, st, n.Id, rng.NextDouble() < 0.4);
                     }
                     var mz = v.Muzzle ? v.Muzzle.position : ToV(n.FireOrigin);
-                    Fx.Instance.MuzzleFlash(mz, ToV(n.FireDir).normalized, st.HidesFlash);
+                    if (!st.Arrow) Fx.Instance.MuzzleFlash(mz, ToV(n.FireDir).normalized, st.HidesFlash);
                     Sfx.Instance.Play(ShotSound(n.Weapon), mz, 1f, 1f, st.Noise * 2);
                 }
                 if (n.MeleeThisFrame)
@@ -409,6 +418,7 @@ namespace Deadhaul
             if (n.Home2 != null) deadSettlers.Add((n.Home2, n.BedIndex));
             v.Loot ??= new List<Stack>();
             if (!n.Weapon.Empty) v.Loot.Add(n.Weapon);
+            if (v.Arrows > 0) v.Loot.Add(new Stack("pijl", v.Arrows));
             foreach (var d in n.Def.Drops)
             {
                 if (rng.NextDouble() > 0.55) continue;
@@ -444,7 +454,8 @@ namespace Deadhaul
                 var b = bullets[i];
                 var from = b.Pos;
                 Ballistics.Step(ref b, dt, game.Chunks.Store, Actors, events);
-                if (b.Tracer) Fx.Instance.Streak(ToV(from), ToV(b.Pos), B.Tracer, 0.012f, 0.03f);
+                if (b.Arrow) Fx.Instance.Streak(ToV(from), ToV(b.Pos), B.Wood, 0.014f, 0.025f);
+                else if (b.Tracer) Fx.Instance.Streak(ToV(from), ToV(b.Pos), B.Tracer, 0.012f, 0.03f);
                 if (b.Alive) bullets[i] = b; else bullets.RemoveAt(i);
             }
             foreach (var e in events)
@@ -458,6 +469,17 @@ namespace Deadhaul
                         if (e.Block == B.ExplosiveBarrel)
                         {
                             pendingBooms.Add((new V3((e.X + 0.5f) * World.VoxelSize, (e.Y + 0.5f) * World.VoxelSize, (e.Z + 0.5f) * World.VoxelSize), 0.15f));
+                            break;
+                        }
+                        if (e.Arrow)
+                        {
+                            if (e.Type == BulletEventType.Impact)
+                            {
+                                StickArrow(p, ToV(e.Dir));
+                                Sfx.Instance.Play("pijl_inslag", p, 0.6f, 1f, 40f);
+                                Fx.Instance.Burst(p, nrm, e.Block, 3, 1.2f, 0.03f, 0.6f);
+                            }
+                            Noise.Emit(e.Pos, 4, e.Owner);
                             break;
                         }
                         Fx.Instance.Impact(p, nrm, e.Block);
@@ -476,6 +498,11 @@ namespace Deadhaul
                         bool wasAlive = victim.Alive;
                         float dealt = victim.TakeDamage(e.Damage, e.Zone, e.Owner);
                         Fx.Instance.Blood(p, -nrm + Vector3.up * 0.3f, e.Zone == HitZone.Hoofd ? 16 : 9);
+                        if (e.Arrow)
+                        {
+                            Sfx.Instance.Play("pijl_inslag", p, 0.5f, 0.7f, 30f);
+                            if (rng.NextDouble() < 0.7) foreach (var nv in npcs) if (nv.Npc == victim) { nv.Arrows++; break; }
+                        }
                         if (e.Owner == PlayerActor.Id)
                         {
                             game.Hud.HitMarker(!victim.Alive && wasAlive, e.Zone == HitZone.Hoofd);
@@ -580,8 +607,52 @@ namespace Deadhaul
             return true;
         }
 
-        /// <summary>Melee van de speler: raakt de dichtstbijzijnde vijand in de kijkrichting.</summary>
-        public bool Melee(Vector3 eye, Vector3 dir, float damage)
+        // ------------------------------------------------ pijlen
+        void StickArrow(Vector3 at, Vector3 dir)
+        {
+            if (dir.sqrMagnitude < 1e-4f) return;
+            if (stuckArrows.Count >= MaxStuckArrows) { Destroy(stuckArrows[0].gameObject); stuckArrows.RemoveAt(0); }
+            var go = new GameObject("Pijl");
+            go.transform.SetParent(transform, false);
+            go.transform.position = at + dir.normalized * 0.04f;
+            go.transform.rotation = Quaternion.LookRotation(dir) * Quaternion.Euler(Random.Range(-4f, 4f), Random.Range(-4f, 4f), Random.Range(0, 360f));
+            go.AddComponent<MeshFilter>().sharedMesh = WeaponView.MeshFor("pijl");
+            go.AddComponent<MeshRenderer>().sharedMaterial = VoxelAssets.VoxelMaterial;
+            stuckArrows.Add(go.transform);
+        }
+
+        int ArrowIndex(Vector3 eye, Vector3 dir)
+        {
+            int best = -1; float bestD = 3.5f;
+            for (int i = 0; i < stuckArrows.Count; i++)
+            {
+                var c = stuckArrows[i].position - stuckArrows[i].forward * 0.2f;
+                float d = Vector3.Distance(eye, c);
+                if (d < bestD && Vector3.Dot((c - eye).normalized, dir) > 0.93f) { best = i; bestD = d; }
+            }
+            return best;
+        }
+
+        public bool ArrowLookedAt(Vector3 eye, Vector3 dir) => ArrowIndex(eye, dir) >= 0;
+
+        /// <summary>Een pijl die ergens in steekt terugpakken.</summary>
+        public bool TryPickArrow(Vector3 eye, Vector3 dir)
+        {
+            int i = ArrowIndex(eye, dir);
+            if (i < 0) return false;
+            if (game.Inventory.Add("pijl", 1) > 0) { game.Hud.Message("Je rugzak zit vol."); return true; }
+            Destroy(stuckArrows[i].gameObject);
+            stuckArrows.RemoveAt(i);
+            Sfx.Instance.Play2D("tik", 0.4f, 0.8f);
+            game.Hud.Message("+1 Pijl");
+            return true;
+        }
+
+        /// <summary>
+        /// Melee van de speler: raakt de dichtstbijzijnde vijand in de kijkrichting. Van achteren of
+        /// ongezien is het een sluipaanval (met een mes meestal dodelijk).
+        /// </summary>
+        public bool Melee(Vector3 eye, Vector3 dir, float damage, float backstabMul = 2f)
         {
             Npc best = null; float bestD = 2.4f;
             foreach (var v in npcs)
@@ -594,11 +665,14 @@ namespace Deadhaul
             }
             if (best == null) return false;
             bool wasAlive = best.Alive;
+            bool sneak = Brain.Unaware(best, game.Player.Pos);
+            if (sneak) damage *= backstabMul;
             best.TakeDamage(damage, HitZone.Romp, PlayerActor.Id);
-            Fx.Instance.Blood(ToV(best.Chest), -dir, 8);
-            Sfx.Instance.Play("slag", ToV(best.Chest), 0.9f);
+            Fx.Instance.Blood(ToV(best.Chest), -dir, sneak ? 18 : 8);
+            Sfx.Instance.Play("slag", ToV(best.Chest), sneak ? 0.5f : 0.9f);
+            if (sneak && wasAlive) game.Hud.Message(best.Alive ? "Sluipaanval!" : "Sluipaanval — stil uitgeschakeld.");
             game.Hud.HitMarker(wasAlive && !best.Alive, false);
-            Noise.Emit(best.Pos, 10, PlayerActor.Id);
+            Noise.Emit(best.Pos, sneak ? 3 : 10, PlayerActor.Id);
             return true;
         }
 
@@ -607,6 +681,8 @@ namespace Deadhaul
             for (int i = npcs.Count - 1; i >= 0; i--) Despawn(i);
             settled.Clear();
             bullets.Clear();
+            foreach (var a in stuckArrows) Destroy(a.gameObject);
+            stuckArrows.Clear();
         }
 
         public int HostilesNear(float radius)
@@ -619,6 +695,7 @@ namespace Deadhaul
         static string ShotSound(Stack w)
         {
             var st = Arsenal.Stats(w);
+            if (st.Arrow) return "pees";
             if (st.Noise < 100) return "schot_gedempt";
             var d = w.Def;
             if (d.Class == WeaponClass.Shotgun) return "schot_hagel";

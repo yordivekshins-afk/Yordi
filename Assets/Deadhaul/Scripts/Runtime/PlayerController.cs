@@ -31,6 +31,7 @@ namespace Deadhaul
         public float AimT, ReloadT, Bloom;
         public WeaponStats Weapon;
         public bool HasGun;
+        public float Draw;                      // spanning van de boog (0..1)
         float fireCooldown, recoilPitch, recoilYaw, meleeCooldown, geigerTimer;
 
         // voertuig en vissen
@@ -379,6 +380,24 @@ namespace Deadhaul
             if (scroll != 0) { Selected = (Selected + (scroll < 0 ? 1 : Inventory.HotbarSize - 1)) % Inventory.HotbarSize; RefreshTool(); }
             useCooldown -= dt;
 
+            if (HasGun && SelectedDef.Id == "boog")
+            {
+                // boog: vasthouden om te spannen, loslaten om te schieten; na het schot een nieuwe pijl opleggen
+                ref var bs = ref Inv.Slots[Selected];
+                if (bs.Ammo <= 0 && !Reloading && fireCooldown <= 0 && Inv.Count("pijl") > 0) StartReload();
+                if (mouse.leftButton.isPressed && bs.Ammo > 0 && !Reloading)
+                {
+                    if (Draw == 0) Sfx.Instance.Play2D("span", 0.5f);
+                    Draw = Mathf.Min(1f, Draw + dt / 0.75f);
+                }
+                else if (Draw > 0)
+                {
+                    if (Draw > 0.2f && bs.Ammo > 0) Shoot(Draw);
+                    Draw = 0;
+                }
+                return;
+            }
+            Draw = 0;
             if (HasGun)
             {
                 bool trigger = Weapon.Automatic && FullAuto ? mouse.leftButton.isPressed : mouse.leftButton.wasPressedThisFrame;
@@ -403,9 +422,11 @@ namespace Deadhaul
             if (Fishing) Fishing = false;
             if (mouse.leftButton.wasPressedThisFrame && meleeCooldown <= 0)
             {
-                var dmg = SelectedDef?.MeleeDamage ?? 0;
+                var mdef = SelectedDef;
+                var dmg = mdef?.MeleeDamage ?? 0;
                 if (dmg <= 0) dmg = 9;   // vuisten
-                if (Game.Combat.Melee(Cam.transform.position, Cam.transform.forward, dmg)) { meleeCooldown = 0.55f; attackAnim = 1; MineProgress = 0; return; }
+                float stab = mdef != null && mdef.MeleeDamage > 0 ? mdef.BackstabMul : 2f;
+                if (Game.Combat.Melee(Cam.transform.position, Cam.transform.forward, dmg, stab)) { meleeCooldown = mdef?.MeleeInterval ?? 0.5f; attackAnim = 1; MineProgress = 0; return; }
             }
             if (mouse.leftButton.isPressed) Mine(dt);
             else MineProgress = 0;
@@ -413,7 +434,7 @@ namespace Deadhaul
         }
 
         // ------------------------------------------------ vuurwapens
-        void Shoot()
+        void Shoot(float power = 1f)
         {
             if (fireCooldown > 0 || Reloading) return;
             ref var s = ref Inv.Slots[Selected];
@@ -427,6 +448,13 @@ namespace Deadhaul
             s.Ammo--;
             fireCooldown = Weapon.Interval;
             var st = Weapon;
+            if (power < 1f)
+            {
+                // half gespannen: trager, minder schade, minder zuiver
+                st.Damage *= power * power;
+                st.Velocity *= 0.45f + 0.55f * power;
+                st.Spread *= 2f - power;
+            }
             // richtpunt: waar het midden van het scherm naar wijst
             Vector3 camPos = Cam.transform.position, camFwd = Cam.transform.forward;
             var vh = Store.Raycast(new V3(camPos.x, camPos.y, camPos.z), new V3(camFwd.x, camFwd.y, camFwd.z), 400f, false);
@@ -449,8 +477,11 @@ namespace Deadhaul
             recoilYaw += st.RecoilH * Gauss();
             var mz = FirstPerson && viewMuzzle ? viewMuzzle : muzzle;
             Vector3 mpos = mz ? mz.position : origin;
-            Fx.Instance.MuzzleFlash(mpos, dir, st.HidesFlash);
-            Fx.Instance.Casing(mpos - dir * 0.25f, Cam.transform.right);
+            if (!st.Arrow)
+            {
+                Fx.Instance.MuzzleFlash(mpos, dir, st.HidesFlash);
+                Fx.Instance.Casing(mpos - dir * 0.25f, Cam.transform.right);
+            }
             Sfx.Instance.Play(CombatSystem.SoundFor(s), mpos, 1f, 1f, st.Noise * 2f);
             Game.Combat.Noise.Emit(new V3(mpos.x, mpos.y, mpos.z), st.Noise, Game.Combat.PlayerActor.Id);
         }
@@ -464,7 +495,8 @@ namespace Deadhaul
             if (Inv.Count(s.Def.AmmoId) <= 0) { Game.Hud.Message($"Geen {Items.Get(s.Def.AmmoId).Name}-munitie."); return; }
             Reloading = true;
             ReloadT = Weapon.ReloadTime;
-            Sfx.Instance.Play2D("herladen", 0.8f, 1.9f / Mathf.Max(0.8f, Weapon.ReloadTime));
+            if (Weapon.Arrow) Sfx.Instance.Play2D("tik", 0.4f, 0.6f);
+            else Sfx.Instance.Play2D("herladen", 0.8f, 1.9f / Mathf.Max(0.8f, Weapon.ReloadTime));
         }
 
         void FinishReload()
@@ -543,6 +575,7 @@ namespace Deadhaul
 
         void Interact()
         {
+            if (Game.Combat.TryPickArrow(Cam.transform.position, Cam.transform.forward)) return;
             if (Game.Combat.TryLootCorpse(Cam.transform.position, Cam.transform.forward)) return;
             if (Game.Combat.TryTalk(Cam.transform.position, Cam.transform.forward)) return;
             var veh = Game.Vehicles.LookedAt(Cam.transform.position, Cam.transform.forward, 4.5f + Vector3.Distance(Cam.transform.position, transform.position + Vector3.up * 1.5f));

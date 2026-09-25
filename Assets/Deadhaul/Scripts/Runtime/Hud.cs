@@ -449,11 +449,18 @@ namespace Deadhaul
                 Fill(new Rect(W / 2 - 1, H / 2 - gap - 8, 2, 8), c); Fill(new Rect(W / 2 - 1, H / 2 + gap, 2, 8), c);
                 Fill(new Rect(W / 2 - gap - 8, H / 2 - 1, 8, 2), c); Fill(new Rect(W / 2 + gap, H / 2 - 1, 8, 2), c);
                 Fill(new Rect(W / 2 - 1, H / 2 - 1, 2, 2), new Color(1, 0.3f, 0.2f, 0.9f));
+                if (pl.Weapon.Arrow && pl.Draw > 0)
+                {
+                    // spanning van de boog
+                    Fill(new Rect(W / 2 - 30, H / 2 + 26, 60, 4), new Color(0, 0, 0, 0.55f));
+                    Fill(new Rect(W / 2 - 30, H / 2 + 26, 60 * pl.Draw, 4), pl.Draw >= 1f ? new Color(1f, 0.85f, 0.4f, 0.95f) : Accent);
+                }
                 return;
             }
             Fill(new Rect(W / 2 - 1, H / 2 - 7, 2, 14), new Color(1, 1, 1, 0.7f));
             Fill(new Rect(W / 2 - 7, H / 2 - 1, 14, 2), new Color(1, 1, 1, 0.7f));
             var t = game.Player.Target;
+            if (game.Combat.ArrowLookedAt(game.Player.Cam.transform.position, game.Player.Cam.transform.forward)) { GUI.Label(new Rect(0, H / 2 + 16, W, 22), "Pijl  —  E om op te rapen", center); return; }
             if (!t.Hit) return;
             var info = Blocks.Info[t.Block];
             string hint = (info.Flags & BlockFlags.Container) != 0 ? (game.Chunks.Store.IsLooted(t.X, t.Y, t.Z) ? "  (leeg)" : "  —  E om te doorzoeken") : t.Block == B.Crop ? "  —  E om te plukken" : "";
@@ -516,7 +523,7 @@ namespace Deadhaul
             Frame(r);
             GUI.Label(new Rect(r.x + 14, r.y + 6, 220, 22), d.Name, label);
             GUI.Label(new Rect(r.x + 14, r.y + 26, 220, 44), $"<size=30><b>{s.Ammo}</b></size> <color=#a8a08a>/ {reserve}</color>", label);
-            string mode = pl.Weapon.Automatic ? (pl.FullAuto ? "AUTO" : "ENKEL") : d.Class == WeaponClass.Shotgun ? "POMP" : d.Class == WeaponClass.Sniper ? "GRENDEL" : "SEMI";
+            string mode = pl.Weapon.Automatic ? (pl.FullAuto ? "AUTO" : "ENKEL") : d.Class == WeaponClass.Shotgun ? "POMP" : d.Class == WeaponClass.Sniper ? "GRENDEL" : d.Class == WeaponClass.Boog ? "STIL" : "SEMI";
             GUI.Label(new Rect(r.xMax - 90, r.y + 38, 80, 22), mode, new GUIStyle(small) { alignment = TextAnchor.MiddleRight, normal = { textColor = Accent } });
             if (pl.Reloading)
             {

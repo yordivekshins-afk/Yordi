@@ -4,7 +4,7 @@ using System.Collections.Generic;
 namespace Deadhaul.Core
 {
     [Flags]
-    public enum WeaponClass : byte { None = 0, Pistool = 1, SMG = 2, Geweer = 4, Shotgun = 8, Sniper = 16 }
+    public enum WeaponClass : byte { None = 0, Pistool = 1, SMG = 2, Geweer = 4, Shotgun = 8, Sniper = 16, Boog = 32 }
 
     public enum AttachSlot : byte { Loop, Optiek, Onderloop, Zijkant, Riem, Magazijn }
 
@@ -18,7 +18,7 @@ namespace Deadhaul.Core
     {
         public float Damage, Interval, Spread, RecoilV, RecoilH, Velocity, Noise, Zoom, AdsTime, ReloadTime, Penetration;
         public int MagSize, Pellets;
-        public bool Automatic, Flashlight, Laser, HidesFlash;
+        public bool Automatic, Flashlight, Laser, HidesFlash, Arrow;
     }
 
     /// <summary>
@@ -38,6 +38,15 @@ namespace Deadhaul.Core
             add(new ItemDef { Id = "762", Name = "7,62×39 mm", Kind = ItemKind.Ammo, MaxStack = 90, Weight = 0.016f, IconBlock = B.Brass });
             add(new ItemDef { Id = "308", Name = ".308 Winchester", Kind = ItemKind.Ammo, MaxStack = 40, Weight = 0.025f, IconBlock = B.Brass });
             add(new ItemDef { Id = "12g", Name = "12-gauge hagel", Kind = ItemKind.Ammo, MaxStack = 40, Weight = 0.04f, IconBlock = B.CarRed });
+            add(new ItemDef { Id = "pijl", Name = "Pijl", Kind = ItemKind.Ammo, MaxStack = 30, Weight = 0.03f, IconBlock = B.Wood, Description = "Raapbaar: pijlen blijven steken waar ze landen." });
+
+            // ------------------------------------------------ stille wapens
+            add(new ItemDef { Id = "boog", Name = "Recurveboog", Kind = ItemKind.Weapon, Class = WeaponClass.Boog, Weight = 1.1f, AmmoId = "pijl", MagSize = 1,
+                GunDamage = 78, FireInterval = 0.3f, Spread = 0.9f, RecoilV = 0.3f, RecoilH = 0.1f, MuzzleVelocity = 64, ReloadTime = 0.6f, Noise = 5,
+                Mounts = AttachMask.Optiek, IconBlock = B.Wood, MeleeDamage = 8, Description = "Houd de linkermuisknop vast om te spannen, laat los om te schieten. Vrijwel geluidloos." });
+            add(new ItemDef { Id = "kruisboog", Name = "Kruisboog", Kind = ItemKind.Weapon, Class = WeaponClass.Boog, Weight = 3.2f, AmmoId = "pijl", MagSize = 1,
+                GunDamage = 115, FireInterval = 0.3f, Spread = 0.7f, RecoilV = 0.8f, RecoilH = 0.15f, MuzzleVelocity = 95, ReloadTime = 2.6f, Noise = 12,
+                Mounts = AttachMask.Optiek | AttachMask.Zijkant | AttachMask.Riem, IconBlock = B.Polymer, MeleeDamage = 14, Description = "Zwaar en traag te laden, maar een pijl gaat dwars door een helm." });
 
             // ------------------------------------------------ vuurwapens
             add(new ItemDef { Id = "pistool", Name = "G19-pistool", Kind = ItemKind.Weapon, Class = WeaponClass.Pistool, Weight = 0.9f, AmmoId = "9mm", MagSize = 17,
@@ -137,6 +146,7 @@ namespace Deadhaul.Core
             "762" => 1.25f,
             "308" => 1.7f,
             "12g" => 0.3f,
+            "pijl" => 0.18f,
             _ => 0.4f,
         };
 
@@ -147,7 +157,7 @@ namespace Deadhaul.Core
             {
                 Damage = d.GunDamage, Interval = d.FireInterval, Spread = d.Spread, RecoilV = d.RecoilV, RecoilH = d.RecoilH,
                 Velocity = d.MuzzleVelocity, Noise = d.Noise, Zoom = 1.15f, AdsTime = d.Class == WeaponClass.Pistool ? 0.16f : d.Class == WeaponClass.Sniper ? 0.35f : 0.24f,
-                ReloadTime = d.ReloadTime, MagSize = d.MagSize, Pellets = d.Pellets, Automatic = d.Automatic, Penetration = Penetration(d.AmmoId)
+                ReloadTime = d.ReloadTime, MagSize = d.MagSize, Pellets = d.Pellets, Automatic = d.Automatic, Penetration = Penetration(d.AmmoId), Arrow = d.Class == WeaponClass.Boog
             };
             if (s.Mods == null) return st;
             foreach (var id in s.Mods)
@@ -275,6 +285,38 @@ namespace Deadhaul.Core
                     m.Box(2, 3, 2, 3, 3, 2, B.Steel); m.Box(3, 2, 2, 3, 2, 2, B.Steel); // grendel
                     m.Box(-1, -9, -34, 1, 2, -34, B.Rubber);
                     m.Mount(AttachSlot.Loop, 0, 3.5f, 56); m.Mount(AttachSlot.Optiek, 0, 5, 4); m.Mount(AttachSlot.Riem, 0, -3, -26);
+                    break;
+
+                case "boog":
+                {
+                    // gebogen latten boven en onder de greep, pees achteraan
+                    m.Box(-1, -4, -1, 1, 4, 1, B.Leather);                          // greep
+                    for (int y = 5; y <= 40; y++)
+                    {
+                        float t = (y - 5) / 35f;
+                        int z = (int)Math.Round(-t * t * 7 + (y > 34 ? (y - 34) * 0.8f : 0));
+                        byte c = y > 36 ? B.Polymer : B.Wood;
+                        m.Box(0, y, z, 0, y, z + 1, c); m.Box(0, -y, z, 0, -y, z + 1, c);
+                    }
+                    m.Box(0, -38, -3, 0, 38, -3, B.Cloth);                           // pees
+                    m.Box(0, 2, 1, 0, 2, 3, B.Steel);                                 // pijlsteun
+                    m.Mount(AttachSlot.Loop, 0, 2, 6); m.Mount(AttachSlot.Optiek, -2, 6, 0);
+                    break;
+                }
+                case "kruisboog":
+                    m.Box(-1, 0, -24, 1, 3, 22, B.Polymer);                          // stok
+                    m.Box(0, 4, -4, 0, 4, 22, B.Steel);                               // rail
+                    for (int y = -8; y <= -1; y++) m.Box(-1, y, -8 - (y + 8) / 3, 1, y, -5 - (y + 8) / 3, B.Polymer);
+                    m.Box(-1, -6, -24, 1, 3, -24, B.Rubber);
+                    for (int x = 1; x <= 20; x++) { int z = 22 - (x * x) / 40; m.Box(x, 2, z, x, 3, z + 1, B.Steel); m.Box(-x, 2, z, -x, 3, z + 1, B.Steel); }
+                    m.Box(-19, 3, 12, 19, 3, 12, B.Cloth);                            // gespannen pees
+                    m.Box(-1, 5, 0, 1, 5, 14, B.Wood);                                // pijl op de rail
+                    m.Mount(AttachSlot.Loop, 0, 4, 23); m.Mount(AttachSlot.Optiek, 0, 5, -2); m.Mount(AttachSlot.Zijkant, 2, 1, 16); m.Mount(AttachSlot.Riem, 0, -3, -20);
+                    break;
+                case "pijl":
+                    m.Box(0, 0, -30, 0, 0, 2, B.Wood);                                // schacht
+                    m.Box(0, 0, 3, 0, 0, 4, B.Steel);                                 // punt
+                    m.Box(-1, 0, -29, 1, 0, -25, B.Bandana); m.Box(0, -1, -29, 0, 1, -25, B.Bandana); // veren
                     break;
 
                 // ---------------- attachments (oorsprong = montagepunt)

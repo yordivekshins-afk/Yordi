@@ -34,7 +34,9 @@ Werkafspraak uit het dossier blijft: **elke mijlpaal is speelbaar**, en er wordt
   t-shirt, hoodie, werkjas, legerjas, winterjas, **hazmatpak**; chest rig, kogelwerend vest, plate carrier; schoudertas,
   rugzak, legerrugzak; muts, pet, bouwhelm, gevechtshelm; bandana, **gasmasker** — met vakken, draaggewicht, warmte, pantser en stralingsbescherming, zichtbaar op je personage
 - ✅ Wapenbank in de rugzak om attachments te monteren
-- Nog te doen: bogen en messen, holsters, voorwerpen draaien in de inventaris, opgenomen geluiden
+- ✅ **Stille wapens**: recurveboog (spannen door vast te houden, loslaten om te schieten), kruisboog; pijlen vallen in een boog, blijven steken in hout en grond en zijn terug te rapen (E), ook uit lijken
+- ✅ **Gevechtsmes en machete**, met **sluipaanvallen**: van achteren of ongezien doet een steek tot 8× schade
+- Nog te doen: holsters, voorwerpen draaien in de inventaris, opgenomen geluiden
 
 ## ✅ M3 – Gevaar: raiders, mutanten en straling
 
@@ -44,7 +46,8 @@ Werkafspraak uit het dossier blijft: **elke mijlpaal is speelbaar**, en er wordt
 - ✅ **Atoomkraters** met stralingsniveau, as, kratermeren en gloeiende kristallen; geigerteller, jodium, hazmat en gasmasker beschermen
 - ✅ Legerposten met zandzakken, tenten, wachttoren en munitiekisten
 - ✅ Lijken doorzoeken, rauw vlees bakken bij het vuur, vacht voor kleding
-- Nog te doen: dekking zoeken, onderhandelen, sloopbare gebouwen met instorting en explosies
+- ✅ **Dekking zoeken**: schutters rennen bij herladen of na een treffer achter muren, auto's of heuvels en komen daarna weer tevoorschijn; aaseters dragen soms een boog en mikken hoger op afstand
+- Nog te doen: onderhandelen, instortende gebouwen
 
 ## ✅ M4 – Levende nederzettingen
 

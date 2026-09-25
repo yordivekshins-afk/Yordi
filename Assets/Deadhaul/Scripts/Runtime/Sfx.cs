@@ -34,6 +34,9 @@ namespace Deadhaul
             clips["tik"] = Click(0.004f, 5000f, 0.6f);
             clips["treffer"] = Click(0.03f, 1800f, 0.4f);
             clips["explosie"] = Boom();
+            clips["pees"] = String(0.45f, 110f);
+            clips["span"] = Creak();
+            clips["pijl_inslag"] = Thunk();
             for (int i = 0; i < 24; i++)
             {
                 var go = new GameObject("Geluid");
@@ -189,6 +192,55 @@ namespace Deadhaul
                 d[i] = Mathf.Clamp((noise * Mathf.Exp(-t * 30f) + lp * 2.2f * env + lp2 * 6f * env + thump * 1.2f) * 0.9f, -1, 1);
             }
             return Make("explosie", d);
+        }
+
+        /// <summary>Boogpees: een geplukte, snel uitdempende snaar met een zucht lucht.</summary>
+        AudioClip String(float length, float freq)
+        {
+            int n = (int)(Rate * length);
+            var d = new float[n];
+            float lp = 0;
+            for (int i = 0; i < n; i++)
+            {
+                float t = i / (float)Rate;
+                float f = freq * (1f + 0.6f * Mathf.Exp(-t * 40f));
+                float str = (Mathf.Sin(2 * Mathf.PI * f * t) + 0.4f * Mathf.Sin(2 * Mathf.PI * f * 2.02f * t)) * Mathf.Exp(-t * 14f);
+                lp += (R() - lp) * 0.15f;
+                float whoosh = lp * Mathf.Exp(-t * 9f) * Mathf.Clamp01(t * 60f);
+                d[i] = Mathf.Clamp((str * 0.55f + whoosh * 1.2f) * 0.8f, -1, 1);
+            }
+            return Make("pees", d);
+        }
+
+        /// <summary>Kraken van hout en touw bij het spannen.</summary>
+        AudioClip Creak()
+        {
+            int n = (int)(Rate * 0.7f);
+            var d = new float[n];
+            float ph = 0;
+            for (int i = 0; i < n; i++)
+            {
+                float t = i / (float)Rate;
+                ph += 2 * Mathf.PI * (180f + t * 120f) / Rate;
+                float grain = (Mathf.Sin(ph) > 0.92f ? 1f : 0f) * R();
+                d[i] = grain * 0.35f * Mathf.Sin(Mathf.PI * t / 0.7f);
+            }
+            return Make("span", d);
+        }
+
+        /// <summary>Doffe tik van een pijl die in hout, grond of vlees slaat.</summary>
+        AudioClip Thunk()
+        {
+            int n = (int)(Rate * 0.25f);
+            var d = new float[n];
+            float lp = 0;
+            for (int i = 0; i < n; i++)
+            {
+                float t = i / (float)Rate;
+                lp += (R() - lp) * 0.2f;
+                d[i] = (Mathf.Sin(2 * Mathf.PI * 160f * t) * Mathf.Exp(-t * 35f) + lp * Mathf.Exp(-t * 60f) * 1.5f) * 0.8f;
+            }
+            return Make("pijl_inslag", d);
         }
 
         AudioClip Wind()

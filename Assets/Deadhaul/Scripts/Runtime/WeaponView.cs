@@ -20,6 +20,9 @@ namespace Deadhaul
             return c;
         }
 
+        /// <summary>Losse mesh van een model (bijv. een pijl die ergens in steekt).</summary>
+        public static Mesh MeshFor(string id) => Get(id).mesh;
+
         /// <summary>Maakt het wapen als kind van parent. Geeft het mondingspunt terug (voor vuur en lichtsporen).</summary>
         public static Transform Build(Stack s, Transform parent, out Transform muzzle, out Transform lamp)
         {

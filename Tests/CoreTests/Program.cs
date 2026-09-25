@@ -440,6 +440,67 @@ static class Program
             Check(Fishing.WaitTime(true, rng) < 10.01f, "aas laat vis sneller bijten");
         }
 
+        Console.WriteLine("Bogen, messen, sluipaanvallen en dekking");
+        {
+            var store = new VoxelStore();
+            for (int cz = -1; cz <= 1; cz++) for (int cx = -1; cx <= 1; cx++)
+            {
+                var pad = new byte[World.PadVolume];
+                for (int pz = 0; pz < World.Pad; pz++) for (int px = 0; px < World.Pad; px++) pad[World.IdxPad(px, 20, pz)] = B.Concrete;
+                store.Add(cx, cz, pad);
+            }
+            float fy = 21 * World.VoxelSize;
+            var actors = new ActorWorld();
+            var player = actors.Add(new Actor { Faction = Faction.Speler, Pos = new V3(0, fy, 0) });
+            var ctx = new AiContext { Store = store, Actors = actors, Noise = new NoiseEvents(), Player = player, Daylight = 1f };
+
+            // pijl: traag, valt, maakt geen lawaai
+            var bow = Arsenal.Stats(new Stack("boog", 1));
+            var pistol = Arsenal.Stats(new Stack("pistool", 1));
+            Check(bow.Arrow && bow.Noise < 10 && pistol.Noise > 100, $"boog is vrijwel geluidloos ({bow.Noise:0} m tegen {pistol.Noise:0} m)");
+            var target = actors.Add(new Npc(Npcs.Defs[NpcType.Aaseter], new V3(0, fy, 30), 30));
+            var arrow = Ballistics.Fire(new V3(0, fy + 1.5f, 0), new V3(0, 0, 1), bow, player.Id, false);
+            var evs = new List<BulletEvent>();
+            float minY = float.MaxValue; int steps = 0;
+            while (arrow.Alive && steps++ < 600) { Ballistics.Step(ref arrow, 1f / 60f, store, actors, evs); minY = MathF.Min(minY, arrow.Pos.Y); }
+            bool hitLow = evs.Exists(e => e.Type == BulletEventType.Actor && e.Arrow && e.Zone != HitZone.Hoofd) || evs.Exists(e => e.Type == BulletEventType.Impact && e.Arrow);
+            Check(hitLow && minY < fy + 1.2f, $"pijl valt merkbaar over 30 m (laagste punt {minY - fy:0.00} m boven de grond)");
+            var arc = Ballistics.Fire(new V3(0, fy + 1.5f, 0), new V3(0, 0.02f, 1), bow, player.Id, false);
+            evs.Clear(); steps = 0;
+            while (arc.Alive && steps++ < 600) Ballistics.Step(ref arc, 1f / 60f, store, actors, evs);
+            Check(evs.Exists(e => e.Type == BulletEventType.Actor && e.Victim == target), "iets hoger mikken: de pijl raakt op 30 m");
+            store.Set(0, 25, 50, B.Planks);
+            var wood = Ballistics.Fire(new V3(0.25f, 25.5f * World.VoxelSize, 20), new V3(0, 0, 1), bow, player.Id, false);
+            evs.Clear(); steps = 0;
+            while (wood.Alive && steps++ < 120) Ballistics.Step(ref wood, 1f / 60f, store, actors, evs);
+            Check(evs.Exists(e => e.Type == BulletEventType.Impact && e.Block == B.Planks && e.Arrow), "een pijl blijft steken in hout");
+
+            // sluipaanval
+            var guard = actors.Add(new Npc(Npcs.Defs[NpcType.Bendelid], new V3(10, fy, 10), 31)); guard.Yaw = 0;
+            Check(Brain.Unaware(guard, new V3(10, fy, 9)), "een nietsvermoedende wacht kun je besluipen");
+            guard.State = NpcState.Aanvallen; guard.Awareness = 1; guard.SeenId = player.Id;
+            Check(!Brain.Unaware(guard, new V3(10, fy, 11)), "wie je ziet aankomen kun je niet besluipen");
+            var knife = Items.Get("mes");
+            float hp = guard.Health;
+            guard.State = NpcState.Zwerven; guard.Awareness = 0; guard.SeenId = -1;
+            guard.TakeDamage(knife.MeleeDamage * knife.BackstabMul, HitZone.Romp, player.Id);
+            Check(!guard.Alive, $"één messteek van achteren schakelt een bendelid uit ({knife.MeleeDamage * knife.BackstabMul:0} schade tegen {hp:0} HP)");
+            Check(Crafting.All.Length > 0 && Array.Exists(Crafting.All, r => r.Result == "pijl") && Array.Exists(Crafting.All, r => r.Result == "boog"), "boog en pijlen zijn te maken");
+
+            // dekking: muur van 2 m hoog tussen schutter en speler
+            for (int x = 2; x <= 12; x++) for (int y = 21; y <= 24; y++) store.Set(x, y, 24, B.Concrete);
+            var gunman = actors.Add(new Npc(Npcs.Defs[NpcType.Bendelid], new V3(8.5f, fy, 13.25f), 32));
+            Check(!Brain.CoverBlocks(gunman.Pos, player, ctx), "naast de muur staat de schutter in het open veld");
+            bool found = Brain.FindCover(gunman, player, ctx, out var cover);
+            Check(found && cover.Z > 12.2f && Brain.CoverBlocks(cover, player, ctx), $"schutter vindt dekking achter de muur ({cover.X:0.0}, {cover.Z:0.0})");
+            gunman.Awareness = 1; gunman.TargetId = player.Id; gunman.State = NpcState.Aanvallen;
+            gunman.TakeDamage(10, HitZone.Benen, player.Id);
+            for (int i = 0; i < 30 * 3; i++) { Brain.Tick(gunman, 1f / 30f, ctx); ctx.Noise.Tick(1f / 30f); }
+            Check(gunman.InCover && Brain.CoverBlocks(gunman.Pos, player, ctx), $"na een treffer rent hij achter de muur (z={gunman.Pos.Z:0.0} m)");
+            var ghoulDef = Npcs.Defs[NpcType.Ghoul];
+            Check(!ghoulDef.UsesCover, "mutanten zoeken geen dekking, ze stormen op je af");
+        }
+
         Console.WriteLine("Biomen, grotten, meubels en explosies");
         {
             var seen = new Dictionary<WorldGen.Biome, int>();
