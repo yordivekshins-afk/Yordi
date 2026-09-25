@@ -497,6 +497,8 @@ static class Program
             gunman.TakeDamage(10, HitZone.Benen, player.Id);
             for (int i = 0; i < 30 * 3; i++) { Brain.Tick(gunman, 1f / 30f, ctx); ctx.Noise.Tick(1f / 30f); }
             Check(gunman.InCover && Brain.CoverBlocks(gunman.Pos, player, ctx), $"na een treffer rent hij achter de muur (z={gunman.Pos.Z:0.0} m)");
+            Check(Blocks.SurfaceOf(B.Asphalt) == Surface.Hard && Blocks.SurfaceOf(B.Planks) == Surface.Hout && Blocks.SurfaceOf(B.Grass) == Surface.Zacht
+                  && Blocks.SurfaceOf(B.Snow) == Surface.Sneeuw && Blocks.SurfaceOf(B.CarRed) == Surface.Metaal, "voetstappen klinken per ondergrond anders");
             var ghoulDef = Npcs.Defs[NpcType.Ghoul];
             Check(!ghoulDef.UsesCover, "mutanten zoeken geen dekking, ze stormen op je af");
         }

@@ -80,8 +80,28 @@ namespace Deadhaul.Core
         public float Metallic;
     }
 
+    /// <summary>Soort ondergrond, voor voetstappen.</summary>
+    public enum Surface : byte { Zacht, Hard, Hout, Metaal, Water, Sneeuw, Zand, Grind }
+
     public static class Blocks
     {
+        public static Surface SurfaceOf(byte b)
+        {
+            switch (b)
+            {
+                case B.Water: return Surface.Water;
+                case B.Snow: case B.Ice: return Surface.Sneeuw;
+                case B.Sand: case B.Ash: case B.Sandbag: return Surface.Zand;
+                case B.Gravel: case B.Rubble: case B.BoneBlock: return Surface.Grind;
+                case B.Planks: case B.WoodWall: case B.Log: case B.Crate: case B.Shelf: case B.Cabinet: case B.Fence: case B.Bed: case B.Roof: return Surface.Hout;
+                case B.Metal: case B.MetalWall: case B.Rust: case B.CarRed: case B.CarBlue: case B.CarGrey: case B.CarWhite:
+                case B.Barrel: case B.ExplosiveBarrel: case B.Bin: case B.Fridge: case B.AmmoCrate: return Surface.Metaal;
+                case B.Asphalt: case B.RoadLine: case B.Concrete: case B.Brick: case B.Stone: case B.Sidewalk: case B.Tile:
+                case B.StoneWall: case B.Plaster: case B.Bedrock: case B.Scorched: case B.Well: return Surface.Hard;
+                default: return Surface.Zacht;   // gras, aarde, modder, tapijt, akker, bladeren
+            }
+        }
+
         public static readonly BlockInfo[] Info = new BlockInfo[256];
         public static readonly bool[] Solid = new bool[256];
         public static readonly bool[] Opaque = new bool[256];

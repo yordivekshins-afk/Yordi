@@ -241,11 +241,18 @@ namespace Deadhaul
                 spawned = true;
             }
 
+            // omgevingsgeluid
+            int vx = Mathf.FloorToInt(Player.Pos.X / World.VoxelSize), vz = Mathf.FloorToInt(Player.Pos.Z / World.VoxelSize);
+            var city = Gen.CityAt(vx, vz, out float d, out _);
+            float inCity = city != null ? Mathf.Clamp01((city.R + 40 - d) / 80f) : 0;
+            Sfx.Instance.Ambience(new Sfx.AmbienceState
+            {
+                Day = Mathf.Clamp01((Clock.Ambient - 0.3f) / 0.4f), Nature = 1 - inCity, City = inCity, Menu = InMenu ? 1 : 0,
+                Radiation = Mathf.Clamp01(Player.Radiation * 3f), Listener = Player.Cam.transform.position,
+            }, dt);
             if (InMenu) return;
 
             // stadsnaam tonen als je een stad binnenloopt
-            int vx = Mathf.FloorToInt(Player.Pos.X / World.VoxelSize), vz = Mathf.FloorToInt(Player.Pos.Z / World.VoxelSize);
-            var city = Gen.CityAt(vx, vz, out float d, out _);
             string name = city != null && d < city.R ? city.Name : null;
             string sub = city != null ? (city.Kind == "capital" ? "hoofdstad" : city.Kind) : null;
             var settle = Gen.SettlementNear(vx, vz, out float sd);

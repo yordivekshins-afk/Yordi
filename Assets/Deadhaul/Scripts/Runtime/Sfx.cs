@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Deadhaul.Core;
 using UnityEngine;
 
 namespace Deadhaul
@@ -14,7 +15,11 @@ namespace Deadhaul
         const int Rate = 44100;
         readonly Dictionary<string, AudioClip> clips = new Dictionary<string, AudioClip>();
         readonly List<AudioSource> pool = new List<AudioSource>();
-        AudioSource wind, ui;
+        AudioSource wind, ui, birds, crickets, city, music;
+        float oneShotTimer = 8f;
+
+        /// <summary>Wat er om de speler heen is, voor het omgevingsgeluid.</summary>
+        public struct AmbienceState { public float Day, Nature, City, Rain, Menu, Radiation; public Vector3 Listener; }
         int next;
         System.Random rnd = new System.Random(5);
 
@@ -49,6 +54,55 @@ namespace Deadhaul
             wind.clip = Wind(); wind.loop = true; wind.volume = 0.12f; wind.spatialBlend = 0; wind.Play();
             ui = gameObject.AddComponent<AudioSource>();
             ui.spatialBlend = 0;
+
+            foreach (Surface f in System.Enum.GetValues(typeof(Surface))) clips["stap_" + f] = Step(f);
+            clips["kraai"] = Crow();
+            clips["huil"] = Howl();
+            clips["ver_schot"] = DistantShot();
+            birds = Loop(Birds(), 0);
+            crickets = Loop(Crickets(), 0);
+            city = Loop(CityHum(), 0);
+            music = Loop(Music(), 0);
+        }
+
+        AudioSource Loop(AudioClip c, float vol)
+        {
+            var a = gameObject.AddComponent<AudioSource>();
+            a.clip = c; a.loop = true; a.volume = vol; a.spatialBlend = 0; a.Play();
+            return a;
+        }
+
+        /// <summary>Voetstap op deze ondergrond; stiller bij sluipen, luider bij rennen.</summary>
+        public void Footstep(Surface s, Vector3 pos, float loudness, bool player)
+        {
+            if (!clips.TryGetValue("stap_" + s, out var clip)) return;
+            if (player) { ui.pitch = 0.9f + (float)rnd.NextDouble() * 0.2f; ui.PlayOneShot(clip, 0.35f * loudness); return; }
+            var src = pool[next]; next = (next + 1) % pool.Count;
+            src.transform.position = pos;
+            src.maxDistance = 30f;
+            src.pitch = 0.85f + (float)rnd.NextDouble() * 0.25f;
+            src.volume = 0.6f * loudness;
+            src.PlayOneShot(clip);
+        }
+
+        /// <summary>Elke frame: omgevingslagen mengen en af en toe een geluid in de verte.</summary>
+        public void Ambience(AmbienceState a, float dt)
+        {
+            float k = 1 - Mathf.Exp(-dt * 0.8f);
+            float nature = a.Nature * (1 - a.Radiation);
+            birds.volume = Mathf.Lerp(birds.volume, 0.22f * a.Day * nature * (1 - a.Rain) * (1 - a.Menu * 0.5f), k);
+            crickets.volume = Mathf.Lerp(crickets.volume, 0.12f * (1 - a.Day) * nature * (1 - a.Rain), k);
+            city.volume = Mathf.Lerp(city.volume, 0.2f * a.City, k);
+            music.volume = Mathf.Lerp(music.volume, a.Menu > 0.5f ? 0.35f : 0f, 1 - Mathf.Exp(-dt * 0.5f));
+            if (a.Menu > 0.5f) return;
+            oneShotTimer -= dt;
+            if (oneShotTimer > 0) return;
+            oneShotTimer = 14f + (float)rnd.NextDouble() * 30f;
+            var dir = Quaternion.Euler(0, (float)rnd.NextDouble() * 360f, 0) * Vector3.forward;
+            double r = rnd.NextDouble();
+            if (a.Day > 0.5f && r < 0.45) Play("kraai", a.Listener + dir * 25f + Vector3.up * 8f, 0.5f, 1f, 200f);
+            else if (a.Day < 0.3f && r < 0.4) Play("huil", a.Listener + dir * 90f, 0.7f, 0.9f + (float)rnd.NextDouble() * 0.2f, 600f);
+            else if (r < 0.7) Play("ver_schot", a.Listener + dir * 150f, 0.6f, 0.8f + (float)rnd.NextDouble() * 0.4f, 900f);
         }
 
         public void Play(string name, Vector3 pos, float volume = 1f, float pitch = 1f, float maxDistance = 400f)
@@ -241,6 +295,192 @@ namespace Deadhaul
                 d[i] = (Mathf.Sin(2 * Mathf.PI * 160f * t) * Mathf.Exp(-t * 35f) + lp * Mathf.Exp(-t * 60f) * 1.5f) * 0.8f;
             }
             return Make("pijl_inslag", d);
+        }
+
+        // ------------------------------------------------ voetstappen
+        AudioClip Step(Surface f)
+        {
+            float len = f == Surface.Sneeuw ? 0.22f : f == Surface.Water ? 0.3f : 0.14f;
+            int n = (int)(Rate * len);
+            var d = new float[n];
+            float lp = 0, cut = f switch { Surface.Zacht => 0.05f, Surface.Zand => 0.35f, Surface.Grind => 0.5f, Surface.Hard => 0.3f, Surface.Hout => 0.12f, Surface.Metaal => 0.4f, _ => 0.2f };
+            for (int i = 0; i < n; i++)
+            {
+                float t = i / (float)Rate;
+                float noise = R();
+                lp += (noise - lp) * cut;
+                float env = Mathf.Exp(-t * (f == Surface.Hard ? 60f : f == Surface.Metaal ? 25f : 30f)) * Mathf.Clamp01(t * 800f);
+                float v = lp * env * 1.6f;
+                switch (f)
+                {
+                    case Surface.Hard: v += Mathf.Sin(2 * Mathf.PI * 1800 * t) * Mathf.Exp(-t * 180f) * 0.25f; break;
+                    case Surface.Hout: v += Mathf.Sin(2 * Mathf.PI * 210 * t) * Mathf.Exp(-t * 35f) * 0.5f; break;
+                    case Surface.Metaal: v += (Mathf.Sin(2 * Mathf.PI * 930 * t) + Mathf.Sin(2 * Mathf.PI * 1470 * t)) * Mathf.Exp(-t * 20f) * 0.2f; break;
+                    case Surface.Sneeuw: v = (rnd.NextDouble() < 0.02 ? R() : 0) * Mathf.Sin(Mathf.PI * t / len) * 0.9f + lp * 0.3f * Mathf.Sin(Mathf.PI * t / len); break;
+                    case Surface.Grind: v += (rnd.NextDouble() < 0.01 ? R() * 0.8f : 0) * Mathf.Exp(-t * 20f); break;
+                    case Surface.Water: v = lp * Mathf.Sin(Mathf.PI * t / len) * (0.6f + 0.4f * Mathf.Sin(t * 180f)) * 1.4f; break;
+                }
+                d[i] = Mathf.Clamp(v, -1, 1);
+            }
+            return Make("stap", d);
+        }
+
+        // ------------------------------------------------ omgeving
+        AudioClip Birds()
+        {
+            int n = Rate * 9;
+            var d = new float[n];
+            for (int c = 0; c < 26; c++)
+            {
+                float start = (float)rnd.NextDouble() * 8.5f, f0 = 2600 + (float)rnd.NextDouble() * 2800;
+                int notes = 2 + rnd.Next(5);
+                float slope = ((float)rnd.NextDouble() - 0.5f) * 3000f, gain = 0.05f + (float)rnd.NextDouble() * 0.1f;
+                for (int k = 0; k < notes; k++)
+                {
+                    float ns = start + k * 0.11f, nl = 0.05f + (float)rnd.NextDouble() * 0.06f;
+                    float ph = 0;
+                    for (int i = (int)(ns * Rate); i < Mathf.Min(n, (int)((ns + nl) * Rate)); i++)
+                    {
+                        float t = i / (float)Rate - ns;
+                        ph += 2 * Mathf.PI * (f0 + slope * t / nl + Mathf.Sin(t * 260f) * 150f) / Rate;
+                        d[i] += Mathf.Sin(ph) * Mathf.Sin(Mathf.PI * t / nl) * gain;
+                    }
+                }
+            }
+            return Make("vogels", Seam(d));
+        }
+
+        AudioClip Crickets()
+        {
+            int n = Rate * 6;
+            var d = new float[n];
+            for (int c = 0; c < 5; c++)
+            {
+                float f = 4200 + c * 230, period = 0.7f + c * 0.13f, off = (float)rnd.NextDouble(), gain = 0.05f + c * 0.012f;
+                for (int i = 0; i < n; i++)
+                {
+                    float t = i / (float)Rate + off;
+                    float cyc = t % period;
+                    float pulse = cyc < 0.18f ? Mathf.Max(0, Mathf.Sin(2 * Mathf.PI * 33f * cyc)) : 0;
+                    d[i] += Mathf.Sin(2 * Mathf.PI * f * t) * pulse * gain;
+                }
+            }
+            return Make("krekels", Seam(d));
+        }
+
+        AudioClip CityHum()
+        {
+            int n = Rate * 10;
+            var d = new float[n];
+            float lp = 0;
+            for (int i = 0; i < n; i++)
+            {
+                float t = i / (float)Rate;
+                lp += (R() - lp) * 0.003f;
+                d[i] = lp * 5f + Mathf.Sin(2 * Mathf.PI * 50f * t) * 0.015f;
+            }
+            // krakend metaal en klapperende plaat
+            for (int c = 0; c < 4; c++)
+            {
+                float start = 0.5f + c * 2.3f + (float)rnd.NextDouble(), f = 300 + (float)rnd.NextDouble() * 500;
+                for (int i = (int)(start * Rate); i < Mathf.Min(n, (int)((start + 1.2f) * Rate)); i++)
+                {
+                    float t = i / (float)Rate - start;
+                    d[i] += Mathf.Sin(2 * Mathf.PI * (f + Mathf.Sin(t * 7f) * 40f) * t) * Mathf.Sin(Mathf.PI * t / 1.2f) * 0.04f * (Mathf.Sin(t * 90f) > 0.3f ? 1 : 0.3f);
+                }
+            }
+            return Make("stad", Seam(d));
+        }
+
+        AudioClip Crow()
+        {
+            int n = (int)(Rate * 1.4f);
+            var d = new float[n];
+            for (int c = 0; c < 3; c++)
+            {
+                float start = c * 0.42f, ph = 0;
+                for (int i = (int)(start * Rate); i < Mathf.Min(n, (int)((start + 0.3f) * Rate)); i++)
+                {
+                    float t = i / (float)Rate - start;
+                    ph += 2 * Mathf.PI * (620f - t * 300f) / Rate;
+                    float saw = (ph / Mathf.PI % 2f) - 1f;
+                    d[i] = (saw * 0.5f + R() * 0.25f) * Mathf.Sin(Mathf.PI * t / 0.3f) * 0.6f;
+                }
+            }
+            return Make("kraai", d);
+        }
+
+        AudioClip Howl()
+        {
+            int n = (int)(Rate * 3.2f);
+            var d = new float[n];
+            float ph = 0;
+            for (int i = 0; i < n; i++)
+            {
+                float t = i / (float)Rate;
+                float f = t < 0.8f ? 380 + t * 400 : 700 - (t - 0.8f) * 110;
+                ph += 2 * Mathf.PI * (f + Mathf.Sin(t * 30f) * 8f) / Rate;
+                d[i] = (Mathf.Sin(ph) + 0.25f * Mathf.Sin(2 * ph)) * Mathf.Sin(Mathf.PI * t / 3.2f) * 0.45f;
+            }
+            return Make("huil", d);
+        }
+
+        AudioClip DistantShot()
+        {
+            int n = (int)(Rate * 2.5f);
+            var d = new float[n];
+            float lp = 0;
+            for (int i = 0; i < n; i++)
+            {
+                float t = i / (float)Rate;
+                lp += (R() - lp) * 0.02f;
+                float echo = Mathf.Exp(-t * 2.2f) * (1 + 0.5f * Mathf.Sin(t * 13f));
+                d[i] = Mathf.Clamp(lp * 5f * echo + Mathf.Sin(2 * Mathf.PI * 45f * t) * Mathf.Exp(-t * 10f) * 0.5f, -1, 1);
+            }
+            return Make("ver_schot", d);
+        }
+
+        /// <summary>Somber ambient-thema voor het hoofdmenu: Am – F – Dm – E, zachte zaagtanden door een laagdoorlaat.</summary>
+        AudioClip Music()
+        {
+            float[][] chords = { new[] { 110f, 164.8f, 220f, 261.6f }, new[] { 87.3f, 174.6f, 220f, 261.6f }, new[] { 73.4f, 146.8f, 174.6f, 220f }, new[] { 82.4f, 164.8f, 207.7f, 246.9f } };
+            const float bar = 7f;
+            int n = (int)(Rate * bar * chords.Length);
+            var d = new float[n];
+            var phase = new float[8];
+            float lp = 0, lp2 = 0;
+            for (int i = 0; i < n; i++)
+            {
+                float t = i / (float)Rate;
+                int ci = (int)(t / bar);
+                float local = t - ci * bar;
+                float env = Mathf.Clamp01(local / 2.2f) * Mathf.Clamp01((bar - local) / 1.8f);
+                float v = 0;
+                for (int k = 0; k < 4; k++)
+                    for (int det = 0; det < 2; det++)
+                    {
+                        int pi = k * 2 + det;
+                        phase[pi] += chords[ci][k] * (det == 0 ? 0.998f : 1.003f) / Rate;
+                        phase[pi] -= Mathf.Floor(phase[pi]);
+                        v += (phase[pi] * 2 - 1) * (k == 0 ? 0.35f : 0.18f);
+                    }
+                float cut = 0.03f + 0.02f * Mathf.Sin(t * 0.4f);
+                lp += (v - lp) * cut; lp2 += (lp - lp2) * cut;
+                // hoge klok als melodie
+                float bell = 0;
+                float bt = local - 3.5f;
+                if (bt > 0) bell = Mathf.Sin(2 * Mathf.PI * chords[ci][3] * 2 * bt) * Mathf.Exp(-bt * 1.6f) * 0.12f;
+                d[i] = (lp2 * env * 0.5f + bell) * 0.8f;
+            }
+            return Make("muziek", Seam(d));
+        }
+
+        /// <summary>Laat het einde in het begin overvloeien zodat een lus niet klikt.</summary>
+        static float[] Seam(float[] d)
+        {
+            int f = Rate / 2, n = d.Length;
+            for (int i = 0; i < f; i++) { float k = i / (float)f; d[i] = d[i] * k + d[n - f + i] * (1 - k); }
+            return d;
         }
 
         AudioClip Wind()

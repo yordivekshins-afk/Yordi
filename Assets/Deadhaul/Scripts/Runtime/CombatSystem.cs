@@ -42,6 +42,7 @@ namespace Deadhaul
             public List<Stack> Loot;
             public float GrowlTimer;
             public int Arrows;              // pijlen in het lichaam, te recupereren bij het lijk
+            public float StepDist;
         }
 
         const int MaxStuckArrows = 60;
@@ -432,6 +433,20 @@ namespace Deadhaul
         void SyncView(NpcView v, float dt)
         {
             var n = v.Npc;
+            // voetstappen: zo hoor je iemand aankomen
+            float spd = new Vector2(n.Vel.X, n.Vel.Z).magnitude;
+            if (n.Alive && n.Grounded && spd > 0.5f && Dist(n.Pos, game.Player.Pos) < 30f)
+            {
+                v.StepDist += spd * dt;
+                float stride = v.Animal ? 0.9f : n.Def.Type == NpcType.Brute ? 2.2f : 1.3f;
+                if (v.StepDist > stride)
+                {
+                    v.StepDist = 0;
+                    byte under = game.Chunks.Store.Get(Mathf.FloorToInt(n.Pos.X / World.VoxelSize), Mathf.FloorToInt((n.Pos.Y - 0.05f) / World.VoxelSize), Mathf.FloorToInt(n.Pos.Z / World.VoxelSize));
+                    float loud = n.Def.Type == NpcType.Brute ? 1.6f : v.Animal ? 0.5f : spd > 3f ? 1f : 0.6f;
+                    Sfx.Instance.Footstep(Blocks.SurfaceOf(under), ToV(n.Pos), loud, false);
+                }
+            }
             v.Root.position = ToV(n.Pos);
             v.Root.rotation = Quaternion.Slerp(v.Root.rotation, Quaternion.Euler(0, n.Yaw, 0), 1 - Mathf.Exp(-10 * dt));
             if (v.Human)

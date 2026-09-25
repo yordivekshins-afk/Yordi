@@ -46,7 +46,7 @@ namespace Deadhaul
         VoxelCharacter body;
         Transform highlight, muzzle, viewModel, viewMuzzle;
         Light flash;
-        float attackAnim, nearFireTimer, useCooldown, camDist = 3.4f, headBob;
+        float stepDist, attackAnim, nearFireTimer, useCooldown, camDist = 3.4f, headBob;
         int mineX = int.MinValue, mineY, mineZ;
         readonly System.Random rng = new System.Random();
         string lastToolKey;
@@ -222,6 +222,18 @@ namespace Deadhaul
             float hs = new Vector2(Vel.X, Vel.Z).magnitude;
             if (sprint && hs > 3 && Grounded) Game.Combat.Noise.Emit(Pos, 18, Game.Combat.PlayerActor.Id);
             else if (!Crouching && hs > 2 && Grounded) Game.Combat.Noise.Emit(Pos, 7, Game.Combat.PlayerActor.Id);
+            // voetstappen op de ondergrond
+            if ((Grounded || InWater) && hs > 0.4f)
+            {
+                stepDist += hs * dt;
+                float stride = sprint ? 1.7f : Crouching ? 0.9f : 1.25f;
+                if (stepDist > stride)
+                {
+                    stepDist = 0;
+                    byte under = InWater ? B.Water : Store.Get(Mathf.FloorToInt(Pos.X / World.VoxelSize), Mathf.FloorToInt((Pos.Y - 0.05f) / World.VoxelSize), Mathf.FloorToInt(Pos.Z / World.VoxelSize));
+                    Sfx.Instance.Footstep(Blocks.SurfaceOf(under), transform.position, Crouching ? 0.35f : sprint ? 1.2f : 0.8f, true);
+                }
+            }
 
             // ------------------------------------------------ richten
             Aiming = !ui && alive && HasGun && mouse != null && mouse.rightButton.isPressed && !Reloading && !sprint;

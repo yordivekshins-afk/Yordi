@@ -89,5 +89,6 @@ Werkafspraak uit het dossier blijft: **elke mijlpaal is speelbaar**, en er wordt
 
 Nog te doen:
 - Ontworpen HUD en inventaris in UI Toolkit (vervangt de IMGUI-HUD)
-- Geluid: ambience, voetstappen per ondergrond, opgenomen wapengeluid, muziek
+- ✅ Geluid: voetstappen per ondergrond (ook van vijanden, zodat je ze hoort aankomen), vogels overdag, krekels 's nachts, krakend metaal in de stad, kraaien, huilende wolven en schoten in de verte, somber menuthema
+- Opgenomen wapengeluid en meer muziek
 - Referentie-onderzoek (foto's, games) voor straten, gebouwen en wapens voor een realistische, filmische look
