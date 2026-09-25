@@ -57,3 +57,6 @@ desktop.ini
 Tests/**/bin/
 Tests/**/obj/
 Tests/**/out/
+
+# testprojecten buiten Unity wel bijhouden
+!Tests/**/*.csproj
