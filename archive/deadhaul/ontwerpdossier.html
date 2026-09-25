@@ -1,0 +1,458 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Deadhaul</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@500;600;700&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --bg:#191b16; --panel:#20231b; --panel2:#262a21; --ink:#e7e3d3; --muted:#a09d87;
+  --line:#3a3e30; --accent:#d9932e; --accent-ink:#1a1408;
+  --rad:#8fb35f; --danger:#c05b41; --shadow:rgba(0,0,0,.35);
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: light){
+  :root:not([data-theme="dark"]){
+    --bg:#ecece3; --panel:#f5f4ec; --panel2:#eae9dd; --ink:#242619; --muted:#6c6a58;
+    --line:#d0cfbd; --accent:#a86a10; --accent-ink:#fdf6e8;
+    --rad:#5e7f37; --danger:#a34426; --shadow:rgba(60,58,40,.18);
+    color-scheme: light;
+  }
+}
+:root[data-theme="light"]{
+  --bg:#ecece3; --panel:#f5f4ec; --panel2:#eae9dd; --ink:#242619; --muted:#6c6a58;
+  --line:#d0cfbd; --accent:#a86a10; --accent-ink:#fdf6e8;
+  --rad:#5e7f37; --danger:#a34426; --shadow:rgba(60,58,40,.18);
+  color-scheme: light;
+}
+*{box-sizing:border-box}
+body{
+  background:var(--bg); color:var(--ink);
+  font-family:"IBM Plex Sans",system-ui,-apple-system,sans-serif;
+  font-size:16px; line-height:1.65; margin:0;
+}
+.wrap{max-width:860px; margin:0 auto; padding:0 24px 96px}
+a{color:var(--accent)}
+h1,h2,h3,h4{font-family:"Saira Condensed","Arial Narrow",sans-serif; line-height:1.15; text-wrap:balance; margin:0}
+p{margin:0 0 1em; max-width:68ch}
+.mono{font-family:"IBM Plex Mono",ui-monospace,monospace}
+
+/* hero */
+header{padding:64px 0 40px; border-bottom:1px solid var(--line)}
+.doc-eyebrow{font-family:"IBM Plex Mono",monospace; font-size:.75rem; letter-spacing:.18em; text-transform:uppercase; color:var(--muted); margin-bottom:14px}
+.doc-eyebrow b{color:var(--accent); font-weight:500}
+h1.title{font-size:clamp(3rem,9vw,5.2rem); font-weight:700; text-transform:uppercase; letter-spacing:.02em}
+.subtitle{font-size:1.15rem; color:var(--muted); margin-top:10px; max-width:60ch}
+.meta-row{display:flex; flex-wrap:wrap; gap:10px; margin-top:26px}
+.meta-chip{font-family:"IBM Plex Mono",monospace; font-size:.75rem; padding:5px 12px; border:1px solid var(--line); border-radius:3px; color:var(--muted)}
+.meta-chip b{color:var(--ink); font-weight:500}
+
+/* toc */
+nav.toc{display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:6px; padding:28px 0; border-bottom:1px solid var(--line)}
+nav.toc a{display:flex; gap:10px; align-items:baseline; padding:7px 10px; text-decoration:none; color:var(--ink); border-radius:3px}
+nav.toc a:hover,nav.toc a:focus-visible{background:var(--panel)}
+nav.toc a:focus-visible{outline:2px solid var(--accent); outline-offset:1px}
+nav.toc .code{font-family:"IBM Plex Mono",monospace; font-size:.72rem; color:var(--accent)}
+
+/* sections */
+section{padding-top:56px}
+.sec-head{display:flex; align-items:baseline; gap:14px; border-bottom:2px solid var(--accent); padding-bottom:8px; margin-bottom:22px}
+.sec-head .code{font-family:"IBM Plex Mono",monospace; font-size:.8rem; color:var(--accent); letter-spacing:.08em}
+.sec-head h2{font-size:2rem; font-weight:600; text-transform:uppercase; letter-spacing:.03em}
+h3{font-size:1.3rem; font-weight:600; margin:28px 0 10px; text-transform:uppercase; letter-spacing:.03em}
+h4{font-size:1.02rem; font-weight:600; font-family:"IBM Plex Sans",sans-serif; margin:18px 0 6px}
+
+/* components */
+.pillars{display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:14px; margin:8px 0 4px}
+.pillar{background:var(--panel); border:1px solid var(--line); border-left:3px solid var(--accent); padding:16px 18px}
+.pillar h4{margin:0 0 6px}
+.pillar p{margin:0; font-size:.92rem; color:var(--muted); max-width:none}
+.note{background:var(--panel); border:1px solid var(--line); padding:14px 18px; margin:18px 0; font-size:.95rem}
+.note .tag{font-family:"IBM Plex Mono",monospace; font-size:.72rem; color:var(--accent); text-transform:uppercase; letter-spacing:.1em; display:block; margin-bottom:4px}
+table{border-collapse:collapse; width:100%; font-size:.92rem; margin:12px 0 20px}
+th{font-family:"IBM Plex Mono",monospace; font-size:.72rem; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); text-align:left; padding:8px 12px 8px 0; border-bottom:1px solid var(--line)}
+td{padding:9px 12px 9px 0; border-bottom:1px solid var(--line); vertical-align:top}
+td:first-child{white-space:nowrap; font-weight:600}
+.tablewrap{overflow-x:auto}
+.num{font-variant-numeric:tabular-nums}
+ul{padding-left:1.2em; max-width:68ch}
+li{margin-bottom:.45em}
+li::marker{color:var(--accent)}
+
+.ztag{display:inline-block; font-family:"IBM Plex Mono",monospace; font-size:.7rem; padding:2px 8px; border-radius:2px; letter-spacing:.06em}
+.z-common{background:var(--panel2); color:var(--muted); border:1px solid var(--line)}
+.z-danger{background:var(--danger); color:#fff}
+.z-rad{background:var(--rad); color:#141810}
+
+/* skill trees */
+.trees{display:grid; grid-template-columns:repeat(auto-fill,minmax(340px,1fr)); gap:16px; margin-top:14px}
+.tree{background:var(--panel); border:1px solid var(--line)}
+.tree-head{padding:12px 16px; border-bottom:1px solid var(--line); display:flex; justify-content:space-between; align-items:baseline; gap:10px}
+.tree-head h4{margin:0; font-family:"Saira Condensed",sans-serif; font-size:1.15rem; text-transform:uppercase; letter-spacing:.04em}
+.tree-head .stat{font-family:"IBM Plex Mono",monospace; font-size:.68rem; color:var(--accent); text-transform:uppercase; letter-spacing:.08em; white-space:nowrap}
+.tree ol{list-style:none; margin:0; padding:10px 16px 14px}
+.tree li{display:grid; grid-template-columns:34px 1fr; gap:10px; padding:7px 0; margin:0; border-bottom:1px dashed var(--line); font-size:.9rem}
+.tree li:last-child{border-bottom:none}
+.tree .tier{font-family:"IBM Plex Mono",monospace; font-size:.7rem; color:var(--muted); padding-top:2px}
+.tree .perk b{display:block; font-weight:600}
+.tree .perk span{color:var(--muted)}
+
+/* roadmap */
+.phase{display:grid; grid-template-columns:120px 1fr; gap:18px; padding:16px 0; border-bottom:1px solid var(--line)}
+.phase:last-of-type{border-bottom:none}
+.phase .ph-id{font-family:"IBM Plex Mono",monospace; font-size:.78rem; color:var(--accent); letter-spacing:.06em}
+.phase .ph-id small{display:block; color:var(--muted); letter-spacing:0; margin-top:4px}
+.phase h4{margin:0 0 6px}
+.phase p{margin:0; color:var(--muted); font-size:.94rem}
+@media (max-width:560px){ .phase{grid-template-columns:1fr; gap:6px} }
+
+footer{margin-top:72px; padding-top:20px; border-top:1px solid var(--line); font-family:"IBM Plex Mono",monospace; font-size:.75rem; color:var(--muted)}
+@media (prefers-reduced-motion: reduce){ *{scroll-behavior:auto!important; transition:none!important} }
+html{scroll-behavior:smooth}
+</style>
+
+<div class="wrap">
+
+<header>
+  <div class="doc-eyebrow">Ontwerpdossier · versie 0.3 · <b>Unity 6</b> · open-world post-apocalyptische survival RPG</div>
+  <h1 class="title">Deadhaul</h1>
+  <p class="subtitle">De wereld is stilgevallen. Wie brandstof kan stoken, stroom kan opwekken en mensen kan verzamelen, bouwt de nieuwe wereld. De rest wordt gelopen door de doden.</p>
+  <div class="meta-row">
+    <span class="meta-chip">Engine <b>Unity 6</b> (C#)</span>
+    <span class="meta-chip">Camera <b>puur 2D, loodrecht top-down</b> (orthografisch)</span>
+    <span class="meta-chip">Platform <b>PC (Windows)</b></span>
+    <span class="meta-chip">Art <b>pre-rendered 3D</b> — Ludo 3D · Mixamo · Blender · 128 px/m</span>
+    <span class="meta-chip">Referenties <b>DayZ · Door Kickers · Kenshi</b></span>
+  </div>
+</header>
+
+<nav class="toc" aria-label="Inhoud">
+  <a href="#s00"><span class="code">S-00</span> Pitch &amp; pijlers</a>
+  <a href="#s01"><span class="code">S-01</span> Wereld &amp; setting</a>
+  <a href="#s02"><span class="code">S-02</span> De speler-loop</a>
+  <a href="#s03"><span class="code">S-03</span> Survival-systemen</a>
+  <a href="#s04"><span class="code">S-04</span> De dreiging: mensen</a>
+  <a href="#s05"><span class="code">S-05</span> NPC's &amp; nederzetting</a>
+  <a href="#s06"><span class="code">S-06</span> Energie &amp; voertuigen</a>
+  <a href="#s07"><span class="code">S-07</span> Economie &amp; konvooien</a>
+  <a href="#s08"><span class="code">S-08</span> Skill trees</a>
+  <a href="#s09"><span class="code">S-09</span> Quests &amp; facties</a>
+  <a href="#s10"><span class="code">S-10</span> Bouwvolgorde</a>
+  <a href="#s11"><span class="code">S-11</span> Unity-technotes</a>
+  <a href="#s12"><span class="code">S-12</span> Productieplan &amp; art-pipeline</a>
+</nav>
+
+<section id="s00">
+  <div class="sec-head"><span class="code">S-00</span><h2>Pitch &amp; pijlers</h2></div>
+  <p><strong>Deadhaul</strong> is een open-world survival RPG in de nabije toekomst. De maatschappij is ingestort; de infrastructuur ligt er nog, maar niets werkt vanzelf. Benzine wordt niet meer geleverd — je stookt ze zelf. Stroom komt niet meer uit de muur — je wekt ze op. Je begint als één overlever in de wildernis en eindigt, als je het overleeft, als stichter van een stad die op de kaart meetelt.</p>
+  <div class="pillars">
+    <div class="pillar"><h4>De wereld draait door zonder jou</h4><p>Bendes claimen wijken, NPC's hebben dagritmes, karavanen rijden, prijzen schuiven. Niets wacht op de speler.</p></div>
+    <div class="pillar"><h4>Alles wat werkt, is gemaakt</h4><p>Elke liter brandstof, elke kilowatt en elke kogel heeft een herkomst. Kunnen máken is macht — daarom zijn mechaniekers en dokters de nieuwe adel.</p></div>
+    <div class="pillar"><h4>Van overlever tot stichter</h4><p>De boog van het spel: eerst je maag vullen, dan een kamp, dan mensen, dan muren, dan handel — tot jouw nederzetting zelf een stip op de handelskaart is.</p></div>
+  </div>
+</section>
+
+<section id="s01">
+  <div class="sec-head"><span class="code">S-01</span><h2>Wereld &amp; setting</h2></div>
+  <p>Nabije toekomst, een jaar of vijftien na "de Stilte" — de week waarin het net uitviel en de uitbraak de steden nam. De wereld bestaat uit meerdere landmassa's, gescheiden door open zee: <strong>het Vasteland</strong>, doorsneden door <strong>de Haul</strong> — de oude transcontinentale corridor die de capitals verbond — <strong>Overwal</strong> aan de andere kant van de oceaan, en <strong>de Archipel</strong> daartussenin. Wie handelt, rijdt de Haul of vaart de oceaan over; wie dat doet, reist tussen de doden. Daar komt de naam vandaan.</p>
+  <h3>Regio's</h3>
+  <div class="tablewrap"><table>
+    <tr><th>Regio</th><th>Wat het is</th></tr>
+    <tr><td>Het Vasteland</td><td>De hoofdmassa: 45+ steden, 5 capitals, de Haul als ruggengraat, bevaarbare rivieren als binnenwegen.</td></tr>
+    <tr><td>Overwal</td><td>Tweede landmassa, alleen per zeewaardig schip bereikbaar. 15+ steden, 3 capitals, eigen klimaat en eigen facties — voelt als een nieuw spel binnen het spel.</td></tr>
+    <tr><td>De Archipel</td><td>Eilandengroep tussen de continenten. Vrijhavens, smokkelroutes, visgronden en 2 haven-capitals.</td></tr>
+    <tr><td>Het Stille Eiland</td><td>Onbewoond eiland ver op zee — niet op kaarten, je moet het vínden. Geen bendes, wel geïsoleerd: claimbaar als eigen uitvalsbasis, maar alles moet per boot aangevoerd.</td></tr>
+    <tr><td>De oceaan</td><td>Reisweg én gevaar: stormen, wrakken om te duiken, en wrakkers — raiders op het water.</td></tr>
+  </table></div>
+  <h3>Schaal</h3>
+  <div class="tablewrap"><table>
+    <tr><th>Wat</th><th>Maat</th><th>Ter vergelijking</th></tr>
+    <tr><td class="num">Wereld</td><td>±1.600 km² over drie landmassa's (Vasteland ±900, Overwal ±400, Archipel + zee de rest); via chunks onbeperkt uitbreidbaar</td><td>7× DayZ's Chernarus (225 km²)</td></tr>
+    <tr><td class="num">Capital</td><td>3–5 km², duizenden betreedbare gebouwen, metro eronder</td><td>Realistische dichte binnenstad met randwijken — groot genoeg om in te verdwalen</td></tr>
+    <tr><td class="num">Stad</td><td>1–3 km²</td><td>Van provinciestadje tot regiostad</td></tr>
+    <tr><td class="num">Dorp</td><td>0,5–1 km²</td><td>Kerkdorpen, gehuchten, truckstops langs de Haul</td></tr>
+    <tr><td class="num">Oversteek</td><td>Vasteland per auto over de Haul ± 45 min; oceaan naar Overwal per schip ± 20 min</td><td>Reizen is een beslissing, geen laadscherm</td></tr>
+    <tr><td class="num">Steden</td><td>60+ totaal, waarvan 10 capitals (5 Vasteland, 3 Overwal, 2 Archipel)</td><td>Elke stad volledig betreedbaar</td></tr>
+    <tr><td class="num">Levende bevolking</td><td>Capitals 1.000–2.500, steden 150–600, dorpen 30–120 NPC's</td><td>Als data gesimuleerd; alleen wie dichtbij is, is "echt"</td></tr>
+  </table></div>
+  <h3>Zonetypes</h3>
+  <div class="tablewrap"><table>
+    <tr><th>Zone</th><th>Karakter</th><th>Risico / beloning</th></tr>
+    <tr><td>Grootsteden (10 capitals)</td><td>Dichte hoogbouw, metro's, ziekenhuizen, industrie. Elk gebouw betreedbaar.</td><td>Zwaarst bewapende bendes, beste loot: medicijnen, wapens, machineonderdelen.</td></tr>
+    <tr><td>Steden &amp; dorpen (50+)</td><td>Laagbouw, winkelstraten, tankstations, garages.</td><td>Middelmatig risico; werkplaatsen en gereedschap.</td></tr>
+    <tr><td>Wildernis</td><td>Bossen, meren, rivieren, moerassen. Jagen, vissen, kappen, kamperen.</td><td>Weinig mensen, wel dieren, kou en rondtrekkende raiders.</td></tr>
+    <tr><td>Rode zones</td><td>Rond geknapte reactoren en industriële rampen. Alleen betreedbaar in stralingspak.</td><td>Dodelijk zonder bescherming; unieke tech en zeldzame materialen.</td></tr>
+    <tr><td>Nederzettingen</td><td>Levende gemeenschappen van NPC's — en later die van jou.</td><td>Handel, quests, rust; raiders hebben ze óók gezien.</td></tr>
+  </table></div>
+  <h3>Tijd &amp; weer</h3>
+  <p>Volledige dag-nachtcyclus en seizoenen. 's Nachts slaan de nachtploegen toe en zie je zaklampen van ver; in de winter wordt warmte een resource. Regen dempt geluid (stealth-voordeel), maar dooft kampvuren en vertraagt zonne-energie.</p>
+</section>
+
+<section id="s02">
+  <div class="sec-head"><span class="code">S-02</span><h2>De speler-loop</h2></div>
+  <div class="tablewrap"><table>
+    <tr><th>Schaal</th><th>Loop</th></tr>
+    <tr><td>Minuut</td><td>Verkennen → sluipen of vechten → looten → beslissen: verder of terugtrekken.</td></tr>
+    <tr><td>Uur</td><td>Expeditie plannen → stad of zone induiken → met buit én schade thuiskomen → craften, repareren, eten, genezen.</td></tr>
+    <tr><td>Sessie</td><td>Een project afronden: een auto rijdend krijgen, een generator bouwen, een NPC rekruteren, een questlijn-stap zetten.</td></tr>
+    <tr><td>Lange termijn</td><td>Van tent → hut → kamp → ommuurde nederzetting → handelsstad. Skill trees uitbouwen, facties bespelen, de hoofdquest volgen.</td></tr>
+  </table></div>
+  <p>De kernspanning is altijd <strong>risico tegen draagkracht</strong>: hoe dieper je een stad in gaat, hoe beter de loot — maar je inventaris is beperkt, lawaai trekt de doden, en de weg terug is even lang als de weg heen.</p>
+</section>
+
+<section id="s03">
+  <div class="sec-head"><span class="code">S-03</span><h2>Survival-systemen</h2></div>
+  <p>DayZ-diepte, maar leesbaar. Zes meters, elk met gevolgen in plaats van alleen een balkje dat leegloopt:</p>
+  <div class="tablewrap"><table>
+    <tr><th>Meter</th><th>Loopt op door</th><th>Gevolg bij verwaarlozing</th></tr>
+    <tr><td>Honger</td><td>Tijd, zware arbeid, kou</td><td>Trager stamina-herstel → bewusteloosheid</td></tr>
+    <tr><td>Dorst</td><td>Tijd, rennen, hitte</td><td>Wazig zicht, sneller uitgeput; vies water = ziekte</td></tr>
+    <tr><td>Temperatuur</td><td>Weer, natte kleding, nacht</td><td>Onderkoeling: trillende handen (slechter richten), bevriezing</td></tr>
+    <tr><td>Vermoeidheid</td><td>Wakker blijven, zwaar dragen</td><td>Slechtere skill-checks; slapen kan overal, maar veilig slapen niet</td></tr>
+    <tr><td>Gezondheid</td><td>Wonden, breuken, bloedingen</td><td>Per lichaamsdeel: manke poot = traag vluchten, gewonde arm = wapenslinger</td></tr>
+    <tr><td>Straling</td><td>Rode zones, besmet voedsel</td><td>Sluipende schade; alleen te stoppen met pillen, pak en afstand</td></tr>
+  </table></div>
+  <h3>Ziekte &amp; infectie</h3>
+  <p>Wonden kunnen infecteren, vies water geeft cholera-achtige ziekte, en een onbehandelde schotwond of dierenbeet start de <strong>infectieklok</strong>: zonder antibiotica (zeldzaam, ziekenhuisloot) word je binnen 48 uur speltijd te ziek om te lopen. Dat is geen game-over-scherm maar een aflopende timer die hele sessies stuurt — de wanhopige tocht naar een ziekenhuis is een verhaal op zich.</p>
+  <h3>Geluid &amp; geur</h3>
+  <p>Elke actie heeft een geluidsradius: sluipen 2 m, lopen 8 m, rennen 20 m, schot 150+ m, motor 80 m. Mensen reageren op de radius én op zichtlijnen; dieren op de radius en op geur. Vlees aan je gordel of bloed op je kleren geeft een geurspoor. Stilte is een wapen dat niets kost.</p>
+</section>
+
+<section id="s04">
+  <div class="sec-head"><span class="code">S-04</span><h2>De dreiging: mensen</h2></div>
+  <p>Er zijn geen monsters in Deadhaul. De vijand is de mens die dezelfde blikken bonen wil als jij. Elke stadswijk heeft een <strong>gevaarsgraad</strong> (0–100): wie er de baas is, hoe zwaar bewapend, en hoe ze reageren op een vreemdeling. Een wijk "schonen" kan — tijdelijk, want een lege wijk trekt de volgende bende aan.</p>
+  <div class="tablewrap"><table>
+    <tr><th>Type</th><th>Klasse</th><th>Gedrag</th></tr>
+    <tr><td>Aaseter</td><td><span class="ztag z-common">standaard</span></td><td>Opportunist met knuppel of mes. Vlucht als de kansen keren, komt terug met vrienden.</td></tr>
+    <tr><td>Bendelid</td><td><span class="ztag z-danger">gevaar</span></td><td>Pistool of geweer, werkt in groepjes van 2–4, dekt elkaar, roept versterking. De kern van elke raidergroep.</td></tr>
+    <tr><td>Uitkijk</td><td><span class="ztag z-danger">gevaar</span></td><td>Vecht zelf nauwelijks — maar zijn fluitsignaal of vuurpijl brengt de hele wijk in beweging. Eerst uitschakelen, stil.</td></tr>
+    <tr><td>Scherpschutter</td><td><span class="ztag z-danger">gevaar</span></td><td>Op daken en in torens, ziet ver, houdt straten dicht. Dwingt je om dekking en hoeken te gebruiken.</td></tr>
+    <tr><td>Nachtploeg</td><td><span class="ztag z-danger">gevaar</span></td><td>Slaat 's nachts toe met zaklampen en honden. Licht is hun wapen — en hun zwakte: jij ziet hen van ver.</td></tr>
+    <tr><td>Stalker</td><td><span class="ztag z-rad">rode zone</span></td><td>Overlevers die te lang in rode zones zaten: pak, masker, paranoïde, schieten eerst. Bewaken de zeldzaamste tech.</td></tr>
+    <tr><td>Krijgsheer</td><td><span class="ztag z-danger">zeldzaam</span></td><td>Leider van een bende met eigen lijfwacht. Uitschakelen breekt de bende — of laat een gevaarlijker opvolger opstaan.</td></tr>
+    <tr><td>Wilde dieren</td><td><span class="ztag z-common">wildernis</span></td><td>Wolven, verwilderde honden, beren. Jagen op geur en geluid; vlees in je rugzak is een risico.</td></tr>
+  </table></div>
+  <h3>Gedrag dat mensen menselijk maakt</h3>
+  <p>Raiders zijn geen kamikazes. Ze gebruiken dekking, flankeren, trekken zich terug bij verliezen, en onderhandelen soms: tol betalen om door te mogen, of een ruil. Moraal is een getal per groep — sneuvelt de leider, dan breekt de groep. Weglokken met lawaai werkt óók op mensen, maar slimme groepen sturen er één op af en houden de rest in dekking.</p>
+  <h3>Bendes</h3>
+  <p>Losse raiders horen bij bendes die een gebied claimen, tol heffen op de Haul en nederzettingen belegeren. Een bende is één object in de simulatie (goedkoop) tot de speler dichtbij is — dan worden het echte mensen met echte posities. Bendes hebben een thuisbasis die je kan vinden, uitroken of overnemen.</p>
+</section>
+
+<section id="s05">
+  <div class="sec-head"><span class="code">S-05</span><h2>NPC's &amp; nederzetting</h2></div>
+  <h3>NPC's met een leven</h3>
+  <p>Elke benoemde NPC heeft een rol, een dagritme en een moraal-meter. Ver van de speler is hij één regel data ("Milo, mechanieker, slaapt 23u–6u"); dichtbij wordt hij een echt personage dat werkt, eet, praat en vlucht. Rollen: mechanieker, dokter, boer, smid, scout, kok, wachter, handelaar, ingenieur, jager.</p>
+  <h3>Rekruteren</h3>
+  <p>Overlevers vind je in de wereld: vastzittend op een dak, als quest-beloning, of als vluchteling aan je poort. Ze joinen op basis van reputatie, voedselvoorraad en veiligheid van je kamp — en ze vertrekken (of sterven) als je die belofte breekt.</p>
+  <h3>Modulair bouwen</h3>
+  <p>Bouwen gebeurt op een grid met modulaire stukken: fundering, muur, raam, deur, dak, verdieping. Van een schuilhut tot een ommuurd stadje met wijken. Elke structuur heeft materiaalkosten, een bouwtijd (NPC's bouwen mee) en een onderhoudsstaat — de wereld vreet aan alles wat je neerzet.</p>
+  <h3>Nederzettingsfases</h3>
+  <div class="tablewrap"><table>
+    <tr><th>Fase</th><th>Vereist</th><th>Ontgrendelt</th></tr>
+    <tr><td class="num">1. Kamp</td><td>Vuur, tent, opslagkist</td><td>Respawnpunt, koken, veilig slapen</td></tr>
+    <tr><td class="num">2. Post</td><td>5 bewoners, waterbron, muur</td><td>Taakroosters, kleine akker, werkbanken</td></tr>
+    <tr><td class="num">3. Gehucht</td><td>15 bewoners, stroom, verdediging</td><td>Werkplaatsen, kliniek, rekruteringsradius</td></tr>
+    <tr><td class="num">4. Nederzetting</td><td>40+ bewoners, brandstofproductie</td><td>Handelspost: karavanen doen jou aan</td></tr>
+    <tr><td class="num">5. Stad</td><td>100+ bewoners, wijken en beroepen</td><td>Eigen konvooien, factiestatus, stadsbestuur</td></tr>
+    <tr><td class="num">6. Capital</td><td>250+ bewoners, meerdere wijken, overschotten</td><td>Jouw stad komt als elfde capital op de wereldkaart; eindspel-questlijnen</td></tr>
+  </table></div>
+  <h3>Raids</h3>
+  <p>Raiders verkennen je nederzetting eerst (zichtbaar, als je oplet), en slaan toe waar je verdediging het zwakst is. Bendes volgen geluid en licht. Verdediging is planning — muren, torens, wachters, valstrikken — geen tower-defense-minigame.</p>
+</section>
+
+<section id="s06">
+  <div class="sec-head"><span class="code">S-06</span><h2>Energie &amp; voertuigen</h2></div>
+  <h3>Twee energieketens</h3>
+  <div class="tablewrap"><table>
+    <tr><th>Keten</th><th>Stappen</th><th>Gebruik</th></tr>
+    <tr><td>Brandstof</td><td>Koolzaad/frituurvet/mest → verzamelen → destilleerketel of biodiesel-installatie → jerrycan</td><td>Verbrandingsauto's, generatoren, vlammenwerper</td></tr>
+    <tr><td>Elektriciteit</td><td>Zonnepaneel / windturbine / generator → laadstation of accubank → opslag</td><td>EV's opladen, licht, koelkast, elektrisch gereedschap, hekwerk</td></tr>
+  </table></div>
+  <p>Oude EV's zijn stil (stealth-rijden!) maar afhankelijk van jouw net; verbranders zijn luid en trekken raiders, maar een jerrycan neem je overal mee naartoe. Die keuze — stil en gebonden of luid en vrij — is een echte build-keuze.</p>
+  <h3>Voertuigen</h3>
+  <p>Auto's, pick-ups, busjes, motoren en boten vind je als wrakken in de wereld. Elk wrak mist onderdelen: accu, banden, bougies, brandstofpomp. Onderdelen zoeken (of laten maken door je mechanieker) en een wrak weer aan de praat krijgen is een questlijn op zich. Voertuigen hebben opslagruimte, verbruik en slijtage; boten openen de kustlijn en rivieren als snelwegen zonder wegversperringen — en wie een zeewaardig schip vindt of bouwt, kan de oceaan over: naar de Archipel, naar Overwal, of op zoek naar het Stille Eiland.</p>
+</section>
+
+<section id="s07">
+  <div class="sec-head"><span class="code">S-07</span><h2>Economie &amp; konvooien</h2></div>
+  <p>Er is geen universele munt — er zijn <strong>drie valuta's</strong>: ruilgoederen (alles heeft ruilwaarde), patronen (de harde munt van raiders en huurlingen) en reputatie (opent deuren die geen kogel opent). Elke nederzetting heeft eigen vraag en aanbod: een vissersdorp zit om medicijnen verlegen, een bergstad om graan. Prijzen schuiven in realtime met voorraden, seizoenen en gebeurtenissen — een raid op een karavaan maakt medicijnen overal langs die route duurder.</p>
+  <h3>Konvooien</h3>
+  <p>Handelaars rijden echte routes over de kaart (off-screen als pure data, on-screen als echte wagens). Jij kan meerijden als bewaker (betaald), zelf een konvooi uitrusten (koop laag, rij ver, verkoop hoog), of — als je die kant op wil — er een overvallen en met de facties de gevolgen dragen. Vanaf nederzettingsfase 4 sturen jouw NPC's eigen konvooien en wordt je stad een knoop in het netwerk.</p>
+</section>
+
+<section id="s08">
+  <div class="sec-head"><span class="code">S-08</span><h2>Skill trees</h2></div>
+  <p>Hybride progressie: <strong>doen levert ervaring in de bijhorende boom</strong> (schieten traint Vuurwapens, sleutelen traint Techniek), en elk boomlevel geeft een perk-punt dat je zelf in die boom besteedt. Acht bomen, elk drie tiers. Je kan alles leren, maar nooit snel — specialiseren loont, en gaten in je eigen kunnen vul je met NPC-specialisten. Dat koppelt de skill trees rechtstreeks aan het nederzettingsspel.</p>
+  <div class="trees">
+    <div class="tree">
+      <div class="tree-head"><h4>Vuurwapens</h4><span class="stat">train: schieten</span></div>
+      <ol>
+        <li><span class="tier">I</span><div class="perk"><b>Vaste hand</b><span>−25% wapenzwaai bij stilstaan</span></div></li>
+        <li><span class="tier">I</span><div class="perk"><b>Zuinig</b><span>10% kans dat een schot geen kogel verbruikt</span></div></li>
+        <li><span class="tier">II</span><div class="perk"><b>Veldstrip</b><span>wapens onderhouden zonder werkbank; −50% slijtage</span></div></li>
+        <li><span class="tier">II</span><div class="perk"><b>Herlader</b><span>eigen patronen maken van hulzen en kruit</span></div></li>
+        <li><span class="tier">III</span><div class="perk"><b>Dodenstilte</b><span>zelfgemaakte dempers verliezen geen schade</span></div></li>
+        <li><span class="tier">III</span><div class="perk"><b>Doorboren</b><span>geweerkogels gaan door dun hout en plaatstaal — dekking is niet meer veilig</span></div></li>
+      </ol>
+    </div>
+    <div class="tree">
+      <div class="tree-head"><h4>Melee &amp; kracht</h4><span class="stat">train: slaan, dragen</span></div>
+      <ol>
+        <li><span class="tier">I</span><div class="perk"><b>Brede rug</b><span>+20% draaggewicht</span></div></li>
+        <li><span class="tier">I</span><div class="perk"><b>Doorzwaai</b><span>melee raakt alle vijanden in de boog</span></div></li>
+        <li><span class="tier">II</span><div class="perk"><b>Schedelbreker</b><span>+50% kans op instant-kill bij hoofdtreffer</span></div></li>
+        <li><span class="tier">II</span><div class="perk"><b>Geïmproviseerd</b><span>wapens craften van schroot slijt 60% trager</span></div></li>
+        <li><span class="tier">III</span><div class="perk"><b>Onwrikbaar</b><span>je wordt nooit omvergeduwd of ontwapend in een worsteling</span></div></li>
+        <li><span class="tier">III</span><div class="perk"><b>Tweede adem</b><span>onder 25% HP: stamina onbeperkt, 20 sec</span></div></li>
+      </ol>
+    </div>
+    <div class="tree">
+      <div class="tree-head"><h4>Stealth</h4><span class="stat">train: ongezien blijven</span></div>
+      <ol>
+        <li><span class="tier">I</span><div class="perk"><b>Lichtvoetig</b><span>−30% geluidsradius bij bewegen</span></div></li>
+        <li><span class="tier">I</span><div class="perk"><b>Aaseter</b><span>looten maakt geen geluid meer</span></div></li>
+        <li><span class="tier">II</span><div class="perk"><b>Vermomming</b><span>bendekleding dragen: raiders van die bende zien je 5 min als een van hen</span></div></li>
+        <li><span class="tier">II</span><div class="perk"><b>Afleiding</b><span>gegooide objecten lokken dubbel zo ver</span></div></li>
+        <li><span class="tier">III</span><div class="perk"><b>Schaduwpas</b><span>geruisloze takedowns van achteren, ook op uitkijken en scherpschutters</span></div></li>
+        <li><span class="tier">III</span><div class="perk"><b>Spookrijder</b><span>EV's en boten maken 80% minder geluid</span></div></li>
+      </ol>
+    </div>
+    <div class="tree">
+      <div class="tree-head"><h4>Survival</h4><span class="stat">train: jagen, kamperen</span></div>
+      <ol>
+        <li><span class="tier">I</span><div class="perk"><b>Spoorzoeker</b><span>dierensporen en raidersporen worden zichtbaar</span></div></li>
+        <li><span class="tier">I</span><div class="perk"><b>Visser</b><span>vissen gaat sneller; vislijnen als passieve vallen</span></div></li>
+        <li><span class="tier">II</span><div class="perk"><b>Fluisteraar</b><span>wilde dieren temmen: hond (waakt), paard (rijdt), valk (verkent)</span></div></li>
+        <li><span class="tier">II</span><div class="perk"><b>IJzervreter</b><span>rauw en bedorven voedsel: halve ziektekans</span></div></li>
+        <li><span class="tier">III</span><div class="perk"><b>Thuis overal</b><span>kamperen telt overal als veilig slapen</span></div></li>
+        <li><span class="tier">III</span><div class="perk"><b>Roedelleider</b><span>twee getemde dieren tegelijk actief</span></div></li>
+      </ol>
+    </div>
+    <div class="tree">
+      <div class="tree-head"><h4>Geneeskunde</h4><span class="stat">train: behandelen</span></div>
+      <ol>
+        <li><span class="tier">I</span><div class="perk"><b>Veldverband</b><span>verbanden werken 50% sneller</span></div></li>
+        <li><span class="tier">I</span><div class="perk"><b>Kruidenkenner</b><span>medicinale planten herkennen en drogen</span></div></li>
+        <li><span class="tier">II</span><div class="perk"><b>Chirurg</b><span>breuken en diepe wonden zetten zonder kliniek</span></div></li>
+        <li><span class="tier">II</span><div class="perk"><b>Apotheker</b><span>pijnstillers, antibiotica en rad-pillen brouwen</span></div></li>
+        <li><span class="tier">III</span><div class="perk"><b>Taai</b><span>de infectieklok loopt bij jou 3× trager</span></div></li>
+        <li><span class="tier">III</span><div class="perk"><b>Veldhospitaal</b><span>NPC's genezen dubbel zo snel in jouw kliniek</span></div></li>
+      </ol>
+    </div>
+    <div class="tree">
+      <div class="tree-head"><h4>Techniek</h4><span class="stat">train: sleutelen</span></div>
+      <ol>
+        <li><span class="tier">I</span><div class="perk"><b>Sloper</b><span>+50% onderdelen bij het strippen van wrakken</span></div></li>
+        <li><span class="tier">I</span><div class="perk"><b>Startkabel</b><span>voertuigen hotwiren zonder sleutel</span></div></li>
+        <li><span class="tier">II</span><div class="perk"><b>Stoker</b><span>biodiesel-installatie en destilleerketel bouwen</span></div></li>
+        <li><span class="tier">II</span><div class="perk"><b>Netwerker</b><span>zonnepanelen, windturbines en accubanken koppelen</span></div></li>
+        <li><span class="tier">III</span><div class="perk"><b>Meestermonteur</b><span>voertuig-upgrades: pantser, rammelbeugel, extra tank</span></div></li>
+        <li><span class="tier">III</span><div class="perk"><b>Nethersteller</b><span>een dood stadsnet lokaal weer onder spanning zetten — licht, poorten, laadpalen</span></div></li>
+      </ol>
+    </div>
+    <div class="tree">
+      <div class="tree-head"><h4>Bouw &amp; ambacht</h4><span class="stat">train: bouwen, craften</span></div>
+      <ol>
+        <li><span class="tier">I</span><div class="perk"><b>Houthakker</b><span>+50% hout, sneller kappen</span></div></li>
+        <li><span class="tier">I</span><div class="perk"><b>Recycleur</b><span>gebouwen en meubels strippen voor materiaal</span></div></li>
+        <li><span class="tier">II</span><div class="perk"><b>Versterkt</b><span>muren en poorten krijgen +50% sterkte</span></div></li>
+        <li><span class="tier">II</span><div class="perk"><b>Vallenzetter</b><span>spike-pits, alarmdraden, boobytraps</span></div></li>
+        <li><span class="tier">III</span><div class="perk"><b>Architect</b><span>verdiepingen, bruggen en wachttorens bouwen</span></div></li>
+        <li><span class="tier">III</span><div class="perk"><b>Scheepsbouwer</b><span>boten bouwen en upgraden op een eigen werf</span></div></li>
+      </ol>
+    </div>
+    <div class="tree">
+      <div class="tree-head"><h4>Leiderschap</h4><span class="stat">train: praten, handelen</span></div>
+      <ol>
+        <li><span class="tier">I</span><div class="perk"><b>Handelaar</b><span>10% betere ruilkoersen</span></div></li>
+        <li><span class="tier">I</span><div class="perk"><b>Mensenkennis</b><span>zie moraal, kunde en verborgen agenda's van NPC's</span></div></li>
+        <li><span class="tier">II</span><div class="perk"><b>Ronselaar</b><span>overlevers joinen sneller; +25% max bewoners per fase</span></div></li>
+        <li><span class="tier">II</span><div class="perk"><b>Karavaanmeester</b><span>eigen konvooien uitrusten en routes plannen</span></div></li>
+        <li><span class="tier">III</span><div class="perk"><b>Stichter</b><span>tweede nederzetting stichten; burgemeesters aanstellen</span></div></li>
+        <li><span class="tier">III</span><div class="perk"><b>Stem van de Haul</b><span>facties tot bondgenootschap of oorlog bewegen</span></div></li>
+      </ol>
+    </div>
+  </div>
+</section>
+
+<section id="s09">
+  <div class="sec-head"><span class="code">S-09</span><h2>Quests &amp; facties</h2></div>
+  <h3>Drie lagen quests</h3>
+  <ul>
+    <li><strong>De hoofdlijn — "Het Signaal".</strong> Een terugkerende uitzending beweert dat ergens voorbij het einde van de Haul het net nooit is uitgevallen. De tocht ernaartoe loopt door alle drie de capitals, elke rode zone en elke factie — een handgeschreven boog van 30+ hoofdstukken die eindigt in een keuze over wie de stroom krijgt.</li>
+    <li><strong>Factie- en stadslijnen.</strong> Elke nederzetting en factie heeft eigen geschreven questlijnen (de dokter met het geheim, de stad die haar bron verliest, de raider die eruit wil).</li>
+    <li><strong>Gegenereerde quests.</strong> De wereldsimulatie schrijft de rest: een karavaan is overvallen → escorte gevraagd; een wijk slaat rood uit → schoonmaakcontract; een NPC-dokter is ontvoerd → losgeld of redding. Eindeloos, omdat de wereld ze zelf blijft maken.</li>
+  </ul>
+  <h3>Facties</h3>
+  <div class="tablewrap"><table>
+    <tr><th>Factie</th><th>Karakter</th></tr>
+    <tr><td>Het Verbond</td><td>Handelsnetwerk van de drie capitals. Orde, tol en contracten.</td></tr>
+    <tr><td>De Stokers</td><td>Brandstofkartel. Controleren de raffinage — en dus de wegen.</td></tr>
+    <tr><td>Wachters van het Net</td><td>Techno-orde die het Signaal heilig acht. Kennis tegen diensten.</td></tr>
+    <tr><td>De Asvogels</td><td>Raider-clans. Geen monoliet: sommige kampen kan je ompraten, opkopen — of overnemen.</td></tr>
+    <tr><td>Vrijhavens</td><td>Kust- en riviersteden, per boot verbonden. Smokkel en vrijheid.</td></tr>
+  </table></div>
+</section>
+
+<section id="s10">
+  <div class="sec-head"><span class="code">S-10</span><h2>Bouwvolgorde</h2></div>
+  <p>Elke fase is op zichzelf een speelbaar spel. Nooit verder bouwen op een fase die nog niet leuk is — dat is de enige regel die dit project van de kerkhof der droomprojecten houdt. Fase 0 is de <strong>vertical slice</strong>: één wijk op de definitieve kwaliteit, als bewijs dat de rest van het plan klopt (zie S-12).</p>
+  <div class="phase"><div class="ph-id">FASE 0<small>vertical slice</small></div><div><h4>Eén wijk, één overlever — op eindkwaliteit</h4><p>Bewegen, camera, sluipen/lopen/rennen met geluidsradius, melee + één vuurwapen, looten, inventaris, honger/dorst, dag-nacht. Aaseters en bendeleden met dekking-AI. Art via de definitieve pipeline. Als dít spannend is én er goed uitziet, is de rest uitbouw.</p></div></div>
+  <div class="phase"><div class="ph-id">FASE 1<small>overleven</small></div><div><h4>Wildernis + eerste stad</h4><p>Volledige survival-meters, ziekte en infectieklok, jagen/vissen/koken, kamp bouwen, craften, alle vijandtypes behalve rode zone, wilde dieren. Wereldstreaming met chunks.</p></div></div>
+  <div class="phase"><div class="ph-id">FASE 2<small>de motor</small></div><div><h4>Voertuigen &amp; energie</h4><p>Wrakken, onderdelen, repareren, rijden, tanken. Beide energieketens: brandstof stoken en stroom opwekken. Boten. De stadgenerator gaat van 1 naar 5 steden.</p></div></div>
+  <div class="phase"><div class="ph-id">FASE 3<small>de mensen</small></div><div><h4>NPC's &amp; nederzetting</h4><p>Rekruteren, dagritmes, taakroosters, modulair bouwen, nederzettingsfases 1–3, raids en belegeringen op je muren. Getemde dieren.</p></div></div>
+  <div class="phase"><div class="ph-id">FASE 4<small>de wereld</small></div><div><h4>Economie &amp; de wereld</h4><p>Vraag/aanbod per stad, karavanen als data + on-screen konvooien, reputatie, facties, gegenereerde quests. Stadgenerator naar 60+, tien capitals handmatig aangekleed; zeewaardige schepen openen Overwal, de Archipel en het Stille Eiland.</p></div></div>
+  <div class="phase"><div class="ph-id">FASE 5<small>het verhaal</small></div><div><h4>Het Signaal &amp; rode zones</h4><p>Hoofdquestlijn, factielijnen, rode zones met stralingspakken en stalkers, eindspel: jouw stad als factie. Polish, audio, weer, seizoenen.</p></div></div>
+</section>
+
+<section id="s11">
+  <div class="sec-head"><span class="code">S-11</span><h2>Unity-technotes</h2></div>
+  <ul>
+    <li><strong>Alles data-driven.</strong> Items, wapens, perks, vijandtypes, recepten en questsjablonen zijn <span class="mono">ScriptableObject</span>s of JSON — nieuwe content toevoegen zonder code te raken. Dit is het verschil tussen "60 steden" en "60 steden onderhouden".</li>
+    <li><strong>Chunk streaming.</strong> Wereld in chunks (bv. 64×64 m); alleen een ring rond de speler is geladen. Steden komen deterministisch uit een seed + generator, met handgeplaatste overrides voor capitals en questlocaties. Addressables voor het laden van chunk-assets.</li>
+    <li><strong>Simulatie-LOD.</strong> Drie ringen: <span class="mono">ECHT</span> (±60–100 agents met volledige AI en physics rond de speler), <span class="mono">NABIJ</span> (honderden, vereenvoudigd, geen physics), <span class="mono">DATA</span> (tienduizenden NPC's, bendes en konvooien als records met een tijdsprong-update). Eén tick per spelminuut voor de datalaag — zo kan een capital 2.500 inwoners hebben zonder dat de framerate het merkt.</li>
+    <li><strong>Spawn-budget.</strong> Gevaarsgraad per wijk bepaalt een spawnbudget rond de speler; nooit meer dan ±40 actieve mensen in gevecht. Bendes zijn één agent tot ze binnen bereik komen.</li>
+    <li><strong>Gevechts-AI.</strong> Utility-AI per raider (dekking zoeken, flankeren, herladen, terugtrekken) bovenop een groepsbrein dat rollen verdeelt. Zichtlijnen via 2D-raycasts tegen muren; geluid via het radiusmodel.</li>
+    <li><strong>Diff-saves.</strong> Sla alleen verschillen t.o.v. de generator op (geloote kast, gedode krijgsheer, gebouwde muur) — saves blijven klein, ook met 60 steden.</li>
+    <li><strong>Navigatie.</strong> Per chunk gebakken 2D-navmesh (NavMeshPlus of eigen grid-A*); NPC-dagritmes lopen op de wegen-graaf tot de speler dichtbij is.</li>
+    <li><strong>Rendering.</strong> Universal RP met 2D Renderer: echte 2D-lichten (zaklamp, lantaarns, muzzle flash), schaduwen via sprite-shadow casters op muren, post-processing (color grading, vignette, film grain) voor de filmische look.</li>
+  </ul>
+</section>
+
+<section id="s12">
+  <div class="sec-head"><span class="code">S-12</span><h2>Productieplan &amp; art-pipeline</h2></div>
+  <p>Zo werken studio's: eerst een <strong>vertical slice</strong> — één klein stuk van het spel op definitieve kwaliteit — en pas daarna schaal. Niets komt in de build dat de kwaliteitslat niet haalt; placeholders worden als placeholder gelabeld en vervangen vóór de milestone sluit.</p>
+
+  <h3>Kwaliteitslat (definition of done per asset)</h3>
+  <ul>
+    <li><strong>Personages:</strong> professionele rig (Mixamo auto-rig), motion-capture animaties, geen zichtbare skinning-fouten op 100% zoom, loops naadloos, hit- en muzzle-frames getagd, handposities (sockets) per frame geëxporteerd.</li>
+    <li><strong>Belichting:</strong> één vaste licht-rig voor álle renders — zon uit het noordwesten onder 40°, zachte vulling, ambient occlusion — zodat elk personage, voertuig en gebouw dezelfde schaduwrichting heeft.</li>
+    <li><strong>Resolutie:</strong> 128 pixels per meter, orthografisch loodrecht, geen perspectief, transparante achtergrond, geen pixel-art-filtering.</li>
+    <li><strong>Omgeving:</strong> modulaire 3D-kit (muren, daken, vloeren, meubels, voertuigen, straatmeubilair) door dezelfde render-rig; alle stukken op een 0,5 m grid zodat de stadgenerator ze naadloos combineert.</li>
+    <li><strong>Voertuigen &amp; props:</strong> moderne wagens — EV's, crossovers en sedans als <em>lookalikes</em> van Opel Grandland, Mercedes, Skoda (geen exacte merken) — met strak afgewerkte hoeken; geen primitieve of ronde speelgoedvormen. Bron: echte 3D-modellen (Ludo 3D → GLB) of handmodel in Blender; procedurele versies zijn placeholders.</li>
+    <li><strong>UI:</strong> eigen ontworpen HUD en inventory in UI Toolkit, in de stijl van het spel — geen debug-tekst in de eindbuild.</li>
+  </ul>
+
+  <h3>Art-pipeline</h3>
+  <div class="tablewrap"><table>
+    <tr><th>Stap</th><th>Tool</th><th>Wie</th><th>Output</th></tr>
+    <tr><td>1. Basismodel</td><td>Ludo 3D (tekst/afbeelding → GLB)</td><td>Yordi</td><td>T-pose mens, voertuig, prop, gebouwdeel</td></tr>
+    <tr><td>2. Rig + mocap</td><td>Mixamo (auto-rig + bibliotheek) · Rokoko Vision (eigen opnames met telefoon)</td><td>Yordi (upload, 15 min)</td><td>Gerigd FBX + animatieclips</td></tr>
+    <tr><td>3. Kleding &amp; varianten</td><td>Blender</td><td>Claude</td><td>Kledinglagen, kleurvarianten per factie</td></tr>
+    <tr><td>4. Render</td><td>Blender Cycles, script</td><td>Claude</td><td>Frames per animatie, loodrecht, 128 px/m, sockets.csv</td></tr>
+    <tr><td>5. Verpakken</td><td>Script</td><td>Claude</td><td>Spritesheets + metadata, direct in het Unity-project</td></tr>
+    <tr><td>6. Review</td><td>In-game, 100% zoom</td><td>Yordi + Claude</td><td>Goedgekeurd, of terug naar de stap waar het misging</td></tr>
+  </table></div>
+
+  <h3>Milestones</h3>
+  <div class="phase"><div class="ph-id">M1<small>pipeline bewezen</small></div><div><h4>Eén personage, alle animaties, in-game</h4><p>Mixamo-rig → render → Unity. Lopen, rennen, richten met pistool en geweer, slaan, geraakt worden, sterven. Wapens exact in de hand. Gate: ziet er in beweging uit als een echte game.</p><p><strong>Status 15/09:</strong> gehaald — 32 clips / 686 frames uit de Ludo-mocapset, kleding per botgewicht, handsockets uit de gerenderde mesh, één lichtrig (zon NW) voor alle assets.</p></div></div>
+  <div class="phase"><div class="ph-id">M2<small>omgevingskit</small></div><div><h4>Eén straat op eindkwaliteit</h4><p>Modulaire gebouwkit (6 gebouwtypes, interieurs), 3 voertuigen, straatmeubilair, bomen, wegdek en gras via dezelfde render-rig. URP 2D-licht en schaduwen. Gate: screenshot naast Door Kickers zonder schaamte.</p><p><strong>Status 15/09:</strong> in uitvoering — procedurele wereld (seed-gebaseerd, oneindig streamend, 64 m-chunks): zee/meren/rivieren/strand/hoogland met reliëfschaduw, steden op 1,4 km-raster (gehucht → grote stad) met stratenrooster, stoepen, markering, zebrapaden, decals; 8 gebouwtypes als 3D-render in drie lagen (dak / interieur / schaduw) met muur-colliders; Sapling-bomen (5 soorten), rotsgenerator, 7 wrakken, straatmeubilair. Open: foto-PBR-textures (ambientCG) inladen voor terrein en wegdek, URP 2D-licht, water-animatie.</p></div></div>
+  <div class="phase"><div class="ph-id">M3<small>vertical slice</small></div><div><h4>Speelbare wijk, 20 minuten</h4><p>Survival-loop (honger, dorst, wonden), raiders met dekking-AI in groepjes, loot, inventory-UI, dag-nacht. Gate: iemand die het spel niet kent, speelt 20 minuten en wil verder.</p></div></div>
+  <div class="phase"><div class="ph-id">M4+<small>productie</small></div><div><h4>Schaal volgens S-10</h4><p>Stadgenerator, voertuigen, energie, NPC's en nederzettingen, economie, de wereld, het verhaal — elk als eigen milestone met dezelfde gate: speelbaar én op kwaliteit.</p></div></div>
+
+  <h3>Werkafspraken</h3>
+  <p>Beslissingen staan in dit dossier, niet in de chat; wat hier staat is de waarheid. Elke sessie eindigt met een speelbare build. Kritiek op kwaliteit wint van planning: als iets er niet goed uitziet, gaat het terug de pipeline in — geen "later fixen". En eerlijk over scope: een team van één plus AI bouwt AAA-<em>kwaliteit</em> op een strak afgebakende scope, niet AAA-<em>omvang</em> in één keer. De 60 steden komen uit de generator, niet uit handwerk.</p>
+</section>
+
+<footer>DEADHAUL · ontwerpdossier v0.3 · levend document — elke sessie bouwt hierop verder</footer>
+
+</div>
+
+</body></html>

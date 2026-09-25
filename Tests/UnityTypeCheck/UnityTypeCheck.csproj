@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Typecheck van alle Unity-scripts zonder Unity: compileert Assets/Deadhaul/Scripts tegen
+    UnityStubs.cs, een minimale nabootsing van de gebruikte Unity-, HDRP-, Input System- en Editor-API's.
+    Gebruik je een nieuwe Unity-API in de scripts, voeg die dan ook aan UnityStubs.cs toe.
+    Draai met: dotnet build Tests/UnityTypeCheck
+  -->
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <LangVersion>9.0</LangVersion>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <NoWarn>CS0105;CS0649;CS0414</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../Assets/Deadhaul/Scripts/**/*.cs" />
+    <Compile Include="UnityStubs.cs" />
+  </ItemGroup>
+</Project>
