@@ -146,7 +146,7 @@ namespace Deadhaul.Core
             while (t <= maxT)
             {
                 byte b = Get(x, y, z);
-                if (Blocks.Solid[b] || (hitFoliage && b == B.Crop))
+                if (Blocks.Solid[b] || (hitFoliage && B.IsPlant(b)))
                 {
                     hit.Hit = true; hit.X = x; hit.Y = y; hit.Z = z; hit.Nx = nx; hit.Ny = ny; hit.Nz = nz;
                     hit.Distance = t * World.VoxelSize; hit.Block = b;

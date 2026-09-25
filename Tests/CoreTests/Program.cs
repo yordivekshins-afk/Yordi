@@ -324,6 +324,55 @@ static class Program
             Check(Spawner.Choose(gen, crater?.X ?? 0, crater?.Z ?? 0, 1f, 0.9f, new Random(3)) is Spawner.Group g && (g.Type == NpcType.Ghoul || g.Type == NpcType.Brute || g.Type == NpcType.Mutantwolf) || true, "in straling spawnen mutanten");
         }
 
+        Console.WriteLine("Nederzettingen, landbouw en bewoners");
+        {
+            Settlement st = null;
+            for (int j = -2; j <= 2 && st == null; j++) for (int i = -2; i <= 2 && st == null; i++) st = gen.GetSettlement(i, j);
+            Check(st != null, st != null ? $"nederzetting '{st.Name}' bij ({st.X0 * World.VoxelSize:0}, {st.Z0 * World.VoxelSize:0}) m" : "nederzetting gevonden");
+            var store = new VoxelStore();
+            int cx0 = World.FloorDiv(st.X0, World.ChunkSize), cz0 = World.FloorDiv(st.Z0, World.ChunkSize);
+            int cx1 = World.FloorDiv(st.X0 + Settlement.W, World.ChunkSize), cz1 = World.FloorDiv(st.Z0 + Settlement.D, World.ChunkSize);
+            var counts = new int[256];
+            for (int cz = cz0 - 1; cz <= cz1 + 1; cz++) for (int cx = cx0 - 1; cx <= cx1 + 1; cx++)
+            {
+                var pad = gen.GenerateChunk(cx, cz);
+                store.Add(cx, cz, pad);
+                for (int lz = 1; lz <= World.ChunkSize; lz++) for (int lx = 1; lx <= World.ChunkSize; lx++) for (int y = 0; y < World.Height; y++) counts[pad[World.IdxPad(lx, y, lz)]]++;
+            }
+            int crops = 0, kinds = 0; foreach (var c in B.Crops) { crops += counts[c]; if (counts[c] > 0) kinds++; }
+            int seeds = 0; foreach (var c in B.Seedlings) seeds += counts[c];
+            Check(kinds >= 6 && crops > 500 && seeds > 200, $"akkers met {kinds} soorten gewassen ({crops} rijp, {seeds} zaailingen)");
+            Check(counts[B.Bed] >= 8 * 2 && counts[B.Campfire] >= 1 && counts[B.Well] >= 1 && counts[B.Farmland] > 1000, $"huisjes met bedden ({counts[B.Bed]}), kookvuur, waterput en akkergrond");
+
+            var actors = new ActorWorld();
+            var player = actors.Add(new Actor { Faction = Faction.Speler, Pos = new V3(0, -50, 0) });
+            var ctx = new AiContext { Store = store, Actors = actors, Noise = new NoiseEvents(), Player = player, Hour = 10, SetBlock = (x, y, z, b) => store.Set(x, y, z, b) };
+            var boer = actors.Add(new Npc(Npcs.Defs[NpcType.Overlever], st.Point(30, 58), 3) { Home2 = st, Job = SettlerJob.Boer, BedIndex = 0 });
+            boer.Pos.Y = (st.Base + 1) * World.VoxelSize;
+            int before = 0; foreach (var v in st.Stock) before += v;
+            for (int i = 0; i < 30 * 60 && boer.Carry < 2; i++) SettlerBrain.Tick(boer, 1f / 30f, ctx);
+            int after = 0; foreach (var v in st.Stock) after += v;
+            Check(after > before && boer.Carry >= 1, $"boer oogst gewassen en plant opnieuw (voorraad {before} → {after})");
+
+            ctx.Hour = 23;
+            var slaper = actors.Add(new Npc(Npcs.Defs[NpcType.Overlever], st.Point(60, 60), 4) { Home2 = st, Job = SettlerJob.Kok, BedIndex = 5 });
+            slaper.Pos.Y = (st.Base + 1) * World.VoxelSize;
+            for (int i = 0; i < 30 * 90 && !slaper.Sleeping; i++) SettlerBrain.Tick(slaper, 1f / 30f, ctx);
+            Check(slaper.Sleeping, $"'s nachts gaat een bewoner via de deur naar zijn bed (slaapt: {slaper.Sleeping})");
+
+            ctx.Hour = 12.2f;
+            var eter = actors.Add(new Npc(Npcs.Defs[NpcType.Overlever], st.Point(20, 58), 5) { Home2 = st, Job = SettlerJob.Boer, BedIndex = 2 });
+            eter.Pos.Y = (st.Base + 1) * World.VoxelSize;
+            for (int i = 0; i < 30 * 40; i++) SettlerBrain.Tick(eter, 1f / 30f, ctx);
+            float dFire = (eter.Pos - st.Point(st.Fire.x - st.X0, st.Fire.z - st.Z0)).Length;
+            Check(eter.Task == SettlerTask.Eten && dFire < 4.5f, $"om 12:00 eten ze bij het vuur ({dFire:0.0} m van het vuur)");
+
+            var stock = st.MakeTraderStock(new Random(1));
+            Check(stock.Exists(x => x.Id.StartsWith("zaad_")) && stock.Exists(x => x.Def.Kind == ItemKind.Weapon), $"handelaar verkoopt {stock.Count} soorten waar, waaronder zaden en een wapen");
+            Check(Items.ValueOf(Items.Get("m4")) > Items.ValueOf(Items.Get("pistool")) && Items.ValueOf(Items.Get("platecarrier")) > Items.ValueOf(Items.Get("tshirt")), "prijzen kloppen in verhouding");
+            Check(Farming.Grown(B.SeedCorn) == B.Corn && Farming.CanPlantOn(B.Farmland, B.Air), "zaailing groeit uit tot het juiste gewas");
+        }
+
         if (args.Length > 0 && args[0] == "map")
         {
             string path = args.Length > 1 ? args[1] : "wereldkaart.png";
@@ -354,6 +403,14 @@ static class Program
                     case ColumnKind.Highway: case ColumnKind.Bridge: blk = B.Asphalt; break;
                     case ColumnKind.Street: blk = B.Asphalt; break;
                     case ColumnKind.Sidewalk: blk = B.Sidewalk; break;
+                    case ColumnKind.Settlement:
+                    {
+                        var st = gen.SettlementNear(x, z, out _);
+                        blk = B.Grass;
+                        if (st != null) for (int ly = 16; ly >= 0; ly--) { int bb = st.BlockAt(x - st.X0, ly, z - st.Z0, gen.Seed); if (bb > 0) { blk = (byte)bb; break; } }
+                        if (B.IsSeedling(blk)) blk = B.Farmland;
+                        break;
+                    }
                     case ColumnKind.Lot:
                     {
                         var lot = gen.LotAtVoxel(x, z);

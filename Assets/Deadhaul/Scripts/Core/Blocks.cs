@@ -30,8 +30,20 @@ namespace Deadhaul.Core
             DeadGrass = 22, Roof = 23, Gravel = 24, Plaster = 25, Lamp = 26, Rust = 27, Moss = 28,
             Bedrock = 29, CarGrey = 30, CarWhite = 31, DeadLeaves = 32, Tile = 33, Carpet = 34,
             Shelf = 35, StoneWall = 36, WoodWall = 37, MetalWall = 38, Barrel = 39, Fence = 40, Crop = 41,
-            Ash = 42, RadCrystal = 43, Sandbag = 44, AmmoCrate = 45, Scorched = 46;
-        public const int Count = 47;
+            Ash = 42, RadCrystal = 43, Sandbag = 44, AmmoCrate = 45, Scorched = 46,
+            Farmland = 47, Potato = 48, Wheat = 49, Corn = 50, Cabbage = 51, Carrot = 52, Tomato = 53, Pumpkin = 54,
+            SeedPotato = 55, SeedWheat = 56, SeedCorn = 57, SeedCabbage = 58, SeedCarrot = 59, SeedTomato = 60, SeedPumpkin = 61,
+            Bed = 62, Cloth = 63, Well = 64;
+        public const int Count = 65;
+
+        // gewassen: rijp blok en het zaailing-blok per soort, in dezelfde volgorde
+        public static readonly byte[] Crops = { Potato, Wheat, Corn, Cabbage, Carrot, Tomato, Pumpkin };
+        public static readonly byte[] Seedlings = { SeedPotato, SeedWheat, SeedCorn, SeedCabbage, SeedCarrot, SeedTomato, SeedPumpkin };
+        public static readonly string[] CropItems = { "aardappel", "graan", "mais", "kool", "wortel", "tomaat", "pompoen" };
+        public static bool IsCrop(byte b) => b >= Potato && b <= Pumpkin;
+        public static bool IsSeedling(byte b) => b >= SeedPotato && b <= SeedPumpkin;
+        public static bool IsPlant(byte b) => b == Crop || IsCrop(b) || IsSeedling(b);
+        public static int CropIndex(byte b) => IsCrop(b) ? b - Potato : IsSeedling(b) ? b - SeedPotato : -1;
 
         // Kleuren voor personages en voorwerpen (komen niet in de wereld voor)
         public const byte Skin = 200, SkinDark = 201, Hair = 202, Jacket = 203, JacketDark = 204, Jeans = 205,
@@ -132,6 +144,18 @@ namespace Deadhaul.Core
             Def(B.Sandbag, "zandzakken", 150, 136, 98, true, 1.4f, "zand");
             Def(B.AmmoCrate, "munitiekist", 72, 84, 56, true, 1.2f, null, BlockFlags.Container, metal: 0.3f);
             Def(B.Scorched, "verschroeide grond", 46, 40, 36, true, 0.6f, "aarde");
+            Def(B.Farmland, "akkergrond", 74, 54, 38, true, 0.5f, "aarde");
+            Def(B.Potato, "aardappelplant", 78, 116, 52, false, 0.2f, null, BlockFlags.Foliage);
+            Def(B.Wheat, "graan", 208, 178, 92, false, 0.2f, null, BlockFlags.Foliage);
+            Def(B.Corn, "maïs", 96, 140, 54, false, 0.2f, null, BlockFlags.Foliage);
+            Def(B.Cabbage, "kool", 128, 170, 98, false, 0.2f, null, BlockFlags.Foliage);
+            Def(B.Carrot, "wortelloof", 88, 136, 56, false, 0.2f, null, BlockFlags.Foliage);
+            Def(B.Tomato, "tomatenplant", 70, 118, 50, false, 0.2f, null, BlockFlags.Foliage);
+            Def(B.Pumpkin, "pompoen", 214, 118, 36, false, 0.4f, null, BlockFlags.Foliage);
+            for (int i = 0; i < 7; i++) Def((byte)(B.SeedPotato + i), "zaailing", 104, 150, 66, false, 0.1f, null, BlockFlags.Foliage);
+            Def(B.Bed, "bed", 150, 140, 120, true, 0.8f, "stof");
+            Def(B.Cloth, "zeildoek", 130, 116, 84, true, 0.4f, "stof");
+            Def(B.Well, "waterput", 112, 110, 104, true, 3f, "steen");
             Def(B.Skin, "huid", 206, 160, 124, true, 1, null);
             Def(B.SkinDark, "huid", 142, 98, 70, true, 1, null);
             Def(B.Hair, "haar", 48, 36, 28, true, 1, null);
@@ -183,7 +207,7 @@ namespace Deadhaul.Core
                 Opaque[i] = Info[i].Solid;
             }
             Opaque[B.Glass] = false; Opaque[B.Fence] = false;
-            Opaque[B.Leaves] = false; Opaque[B.DeadLeaves] = false;
+            Opaque[B.Leaves] = false; Opaque[B.DeadLeaves] = false; Opaque[B.Bed] = false;
         }
 
         public static bool Is(byte id, BlockFlags f) => (Info[id].Flags & f) != 0;

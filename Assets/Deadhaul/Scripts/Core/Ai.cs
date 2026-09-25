@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace Deadhaul.Core
 {
-    public enum NpcType : byte { Aaseter, Bendelid, Scherpschutter, Ghoul, Brute, Mutantwolf, Hert }
+    public enum NpcType : byte { Aaseter, Bendelid, Scherpschutter, Ghoul, Brute, Mutantwolf, Hert, Overlever }
 
     public enum NpcState : byte { Rust, Zwerven, Onderzoeken, Aanvallen, Vluchten, Dood }
 
@@ -35,6 +35,7 @@ namespace Deadhaul.Core
             [NpcType.Ghoul] = new NpcDef { Type = NpcType.Ghoul, Name = "Ghoul", Faction = Faction.Mutant, Health = 85, Speed = 1.8f, RunSpeed = 7.2f, MeleeDamage = 18, MeleeInterval = 0.8f, SightDay = 35, SightNight = 45, Hearing = 1.6f, Nocturnal = true, Drops = new[] { "stof", "jodium" } },
             [NpcType.Brute] = new NpcDef { Type = NpcType.Brute, Name = "Brute", Faction = Faction.Mutant, Health = 380, Speed = 1.3f, RunSpeed = 4.4f, Height = 2.7f, Radius = 0.55f, MeleeDamage = 42, MeleeRange = 2.4f, MeleeInterval = 1.8f, SightDay = 40, SightNight = 40, ArmorBody = 0.2f, Drops = new[] { "jodium", "schroot", "medkit" } },
             [NpcType.Mutantwolf] = new NpcDef { Type = NpcType.Mutantwolf, Name = "Mutantwolf", Faction = Faction.Mutant, Health = 60, Speed = 2.2f, RunSpeed = 8.4f, Height = 0.95f, Radius = 0.42f, MeleeDamage = 13, MeleeRange = 1.5f, MeleeInterval = 0.7f, SightDay = 45, SightNight = 45, Hearing = 2f, Drops = new[] { "vlees", "vlees" } },
+            [NpcType.Overlever] = new NpcDef { Type = NpcType.Overlever, Name = "Overlever", Faction = Faction.Overlever, Health = 90, Speed = 1.5f, RunSpeed = 5.4f, MeleeDamage = 10, SightDay = 55, SightNight = 25, FleeBelow = 0.25f, Accuracy = 2.4f, PreferredRange = 16, Drops = new[] { "doppen", "brood", "water" } },
             [NpcType.Hert] = new NpcDef { Type = NpcType.Hert, Name = "Hert", Faction = Faction.Dier, Health = 55, Speed = 1.3f, RunSpeed = 9f, Height = 1.4f, Radius = 0.45f, SightDay = 50, SightNight = 20, Hearing = 2.2f, Passive = true, Drops = new[] { "vlees", "vlees", "vlees", "vacht" } },
         };
 
@@ -57,6 +58,18 @@ namespace Deadhaul.Core
         public int TargetId = -1;
         public float StateTime, AttackCooldown, Awareness, SeenTime, StuckTime, Speed01, SenseTimer;
         public int SeenId = -1;             // wie hij bij de laatste waarneming zag
+        public bool Angry;                  // boos op de speler (na een aanval)
+
+        // dorpelingen
+        public Settlement Home2;
+        public SettlerJob Job;
+        public SettlerTask Task;
+        public V3 TaskPos;
+        public int TaskX, TaskY, TaskZ, Carry, BedIndex;
+        public float TaskTimer, SlideTimer;
+        public float SlideX, SlideZ;
+        public bool Sleeping, Working;
+        public string Line;                 // wat hij zegt als je hem aanspreekt
         public V3 LastSeen;
         public Stack Weapon;
         public bool Looted;
@@ -78,6 +91,7 @@ namespace Deadhaul.Core
         public override float TakeDamage(float dmg, HitZone zone, int attacker)
         {
             float d = base.TakeDamage(dmg, zone, attacker);
+            Sleeping = false;
             if (Alive)
             {
                 Awareness = 1f;
@@ -96,6 +110,8 @@ namespace Deadhaul.Core
         public ActorWorld Actors;
         public NoiseEvents Noise;
         public float Daylight = 1f;         // 0 nacht .. 1 dag
+        public float Hour = 12f;
+        public System.Action<int, int, int, byte> SetBlock;   // voor boeren: gewassen oogsten en planten
         public Actor Player;
         public bool PlayerCrouching, PlayerFlashlight;
         public Random Rng = new Random(1);
@@ -113,39 +129,8 @@ namespace Deadhaul.Core
             n.AttackCooldown -= dt;
             var def = n.Def;
 
-            // ---------------- waarnemen
-            Actor target = n.TargetId >= 0 ? ctx.Actors.Get(n.TargetId) : null;
-            if (target != null && !target.Alive) { target = null; n.TargetId = -1; }
-            // rondkijken kost raycasts: vijf keer per seconde is genoeg
-            n.SenseTimer -= dt;
-            if (n.SenseTimer <= 0)
-            {
-                n.SenseTimer = 0.2f + (n.Seed % 5) * 0.01f;
-                n.SeenId = -1; float best = float.MaxValue;
-                foreach (var a in ctx.Actors.All)
-                {
-                    if (a == n || !a.Alive) continue;
-                    bool threat = def.Passive ? a.Faction != Faction.Dier : Npcs.Hostile(n.Faction, a.Faction);
-                    if (!threat) continue;
-                    float d = Dist(n.Pos, a.Pos);
-                    if (d > 130 || d >= best) continue;
-                    if (CanSee(n, a, d, ctx)) { n.SeenId = a.Id; best = d; }
-                }
-            }
-            Actor seen = n.SeenId >= 0 ? ctx.Actors.Get(n.SeenId) : null;
-            if (seen != null && !seen.Alive) { seen = null; n.SeenId = -1; }
+            var seen = Sense(n, dt, ctx, out var target);
             float seenDist = seen != null ? Dist(n.Pos, seen.Pos) : float.MaxValue;
-            if (seen != null)
-            {
-                n.Awareness = Math.Min(1f, n.Awareness + dt * (seenDist < 10 ? 3f : 1.2f));
-                if (n.Awareness >= 1f) { target = seen; n.TargetId = seen.Id; n.LastSeen = seen.Pos; n.SeenTime = 0; }
-            }
-            else
-            {
-                n.Awareness = Math.Max(0f, n.Awareness - dt * 0.15f);
-                n.SeenTime += dt;
-            }
-            if (target != null && seen == target) n.LastSeen = target.Pos;
 
             // geluiden
             if (n.State != NpcState.Aanvallen && n.State != NpcState.Vluchten)
@@ -238,6 +223,47 @@ namespace Deadhaul.Core
             if (move.X * move.X + move.Z * move.Z > 1e-4f && n.State != NpcState.Aanvallen) n.Yaw = MathF.Atan2(move.X, move.Z) * 57.2958f;
             if (run && n.State != NpcState.Vluchten && n.Def.Type != NpcType.Brute) ctx.Noise.Emit(n.Pos, 6, n.Id);
             Physics(n, dt, ctx, move, speed, true);
+        }
+
+        /// <summary>Rondkijken en besluiten wie het doelwit is. Geeft terug wie hij nu ziet.</summary>
+        public static Actor Sense(Npc n, float dt, AiContext ctx, out Actor target)
+        {
+            var def = n.Def;
+            if (!n.Angry && n.LastAttacker >= 0 && ctx.Actors.Get(n.LastAttacker)?.Faction == Faction.Speler && def.Faction == Faction.Overlever) n.Angry = true;
+            target = n.TargetId >= 0 ? ctx.Actors.Get(n.TargetId) : null;
+            if (target != null && !target.Alive) { target = null; n.TargetId = -1; }
+            // rondkijken kost raycasts: vijf keer per seconde is genoeg
+            n.SenseTimer -= dt;
+            if (n.SenseTimer <= 0)
+            {
+                n.SenseTimer = 0.2f + (n.Seed % 5) * 0.01f;
+                n.SeenId = -1; float best = float.MaxValue;
+                foreach (var a in ctx.Actors.All)
+                {
+                    if (a == n || !a.Alive) continue;
+                    bool threat = def.Passive ? a.Faction != Faction.Dier : Npcs.Hostile(n.Faction, a.Faction) || (n.Angry && a.Faction == Faction.Speler);
+                    if (!threat) continue;
+                    float d = Dist(n.Pos, a.Pos);
+                    if (d > 130 || d >= best) continue;
+                    if (CanSee(n, a, d, ctx)) { n.SeenId = a.Id; best = d; }
+                }
+            }
+            Actor seen = n.SeenId >= 0 ? ctx.Actors.Get(n.SeenId) : null;
+            if (seen != null && !seen.Alive) { seen = null; n.SeenId = -1; }
+            float seenDist = seen != null ? Dist(n.Pos, seen.Pos) : float.MaxValue;
+            if (seen != null)
+            {
+                n.Awareness = Math.Min(1f, n.Awareness + dt * (seenDist < 10 ? 3f : 1.2f));
+                if (n.Awareness >= 1f) { target = seen; n.TargetId = seen.Id; n.LastSeen = seen.Pos; n.SeenTime = 0; }
+            }
+            else
+            {
+                n.Awareness = Math.Max(0f, n.Awareness - dt * 0.15f);
+                n.SeenTime += dt;
+            }
+            if (target != null && seen == target) n.LastSeen = target.Pos;
+
+            return seen;
         }
 
         static void Shoot(Npc n, Actor target, float dist, AiContext ctx)

@@ -22,6 +22,7 @@ namespace Deadhaul.Core
         public int MagSize;
         public float FireInterval = 0.5f;
         public byte IconBlock;           // kleur voor het icoon
+        public int Value;                // handelswaarde in doppen (0 = automatisch)
 
         // vuurwapens (zie Arsenal)
         public WeaponClass Class;
@@ -91,7 +92,39 @@ namespace Deadhaul.Core
             Add(new ItemDef { Id = "pijp", Name = "Loden pijp", Kind = ItemKind.Weapon, Weight = 1.5f, MeleeDamage = 28, MineSpeed = 1.3f, IconBlock = B.Gunmetal });
             Add(new ItemDef { Id = "bijl", Name = "Bijl", Kind = ItemKind.Tool, Weight = 1.8f, MeleeDamage = 32, MineSpeed = 1.2f, WoodSpeed = 3.5f, IconBlock = B.Blade });
             Add(new ItemDef { Id = "breekijzer", Name = "Breekijzer", Kind = ItemKind.Tool, Weight = 1.6f, MeleeDamage = 24, MineSpeed = 3f, IconBlock = B.Rust, Description = "Sloopt steen en metaal veel sneller." });
+            // gewassen: eten en zaden
+            string[] cropNames = { "Aardappel", "Graan", "Maïs", "Kool", "Wortel", "Tomaat", "Pompoen" };
+            float[] cropFood = { 14, 4, 12, 12, 9, 8, 20 }, cropWater = { 2, 0, 4, 6, 5, 10, 6 };
+            for (int i = 0; i < 7; i++)
+            {
+                Add(new ItemDef { Id = B.CropItems[i], Name = cropNames[i], Kind = ItemKind.Food, MaxStack = 20, Weight = 0.25f, Food = cropFood[i], Water = cropWater[i], IconBlock = B.Crops[i], Value = 3 });
+                Add(new ItemDef { Id = "zaad_" + B.CropItems[i], Name = "Zaad: " + cropNames[i].ToLowerInvariant(), Kind = ItemKind.Block, MaxStack = 30, Weight = 0.01f, PlaceBlock = B.Seedlings[i], IconBlock = B.Seedlings[i], Value = 2, Description = "Plant op akkergrond, gras of aarde." });
+            }
+            Add(new ItemDef { Id = "brood", Name = "Brood", Kind = ItemKind.Food, MaxStack = 6, Weight = 0.4f, Food = 38, Water = -4, IconBlock = B.Wheat, Value = 12 });
+            Add(new ItemDef { Id = "soep", Name = "Groentesoep", Kind = ItemKind.Food, MaxStack = 4, Weight = 0.6f, Food = 45, Water = 30, IconBlock = B.Pumpkin, Value = 18 });
+            Add(new ItemDef { Id = "gebakken_aardappel", Name = "Gepofte aardappel", Kind = ItemKind.Food, MaxStack = 8, Weight = 0.2f, Food = 22, IconBlock = B.Leather, Value = 6 });
+            Add(new ItemDef { Id = "doppen", Name = "Doppen", Kind = ItemKind.Misc, MaxStack = 999, Weight = 0.002f, IconBlock = B.Brass, Value = 1, Description = "Het geld van de nieuwe wereld." });
+            Add(new ItemDef { Id = "akkergrond", Name = "Akkergrond", Kind = ItemKind.Block, MaxStack = 50, Weight = 1f, PlaceBlock = B.Farmland, IconBlock = B.Farmland, Value = 1 });
+
             Arsenal.Register(d => Add(d));
+        }
+
+        /// <summary>Handelswaarde in doppen.</summary>
+        public static int ValueOf(ItemDef d)
+        {
+            if (d.Value > 0) return d.Value;
+            switch (d.Kind)
+            {
+                case ItemKind.Ammo: return d.Id == "308" ? 4 : d.Id == "12g" ? 3 : 2;
+                case ItemKind.Weapon: return d.GunDamage > 0 ? (int)(d.GunDamage * 4 + d.MagSize * 3) : (int)(d.MeleeDamage * 2);
+                case ItemKind.Attachment: return 60;
+                case ItemKind.Clothing: return 15 + d.Capacity * 6 + (int)(d.Armor * 200) + (int)(d.RadProtection * 150) + (int)(d.Warmth * 30);
+                case ItemKind.Medical: return (int)(8 + d.Heal * 0.8f) + (d.CuresSickness ? 30 : 0);
+                case ItemKind.Food: case ItemKind.Drink: return (int)(2 + (d.Food + d.Water) * 0.25f);
+                case ItemKind.Tool: return 40;
+                case ItemKind.Block: return 1;
+                default: return 4;
+            }
         }
     }
 
@@ -240,6 +273,9 @@ namespace Deadhaul.Core
         {
             new Recipe { Result = "verband", Count = 1, Needs = new[] { ("stof", 2) } },
             new Recipe { Result = "gebakken_vlees", Count = 1, Needs = new[] { ("vlees", 1) }, NeedsFire = true },
+            new Recipe { Result = "brood", Count = 1, Needs = new[] { ("graan", 3) }, NeedsFire = true },
+            new Recipe { Result = "gebakken_aardappel", Count = 2, Needs = new[] { ("aardappel", 2) }, NeedsFire = true },
+            new Recipe { Result = "soep", Count = 1, Needs = new[] { ("kool", 1), ("wortel", 1), ("tomaat", 1), ("water", 1) }, NeedsFire = true },
             new Recipe { Result = "winterjas", Count = 1, Needs = new[] { ("vacht", 3), ("stof", 4) } },
             new Recipe { Result = "schoudertas", Count = 1, Needs = new[] { ("stof", 6), ("vacht", 1) } },
             new Recipe { Result = "kampvuur", Count = 1, Needs = new[] { ("hout", 4), ("steen", 3) } },

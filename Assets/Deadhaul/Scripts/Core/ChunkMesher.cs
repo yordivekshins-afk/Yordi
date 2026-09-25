@@ -123,9 +123,15 @@ namespace Deadhaul.Core
                         byte b = pad[colBase + y];
                         if (b == B.Air || b == B.Water) continue;
                         int variation = (int)(Hash.H3(ox + lx, y, oz + lz, 9127) * Palette.Variations) & 3;
-                        if (b == B.Crop)
+                        if (B.IsPlant(b))
                         {
-                            EmitCrop(m, lx, y, lz, b, variation);
+                            EmitPlant(m, lx, y, lz, b, variation);
+                            continue;
+                        }
+                        if (b == B.Bed)
+                        {
+                            EmitBox(m, lx, y, lz, 0.02f, 0f, 0.02f, 0.98f, 0.45f, 0.98f, B.Bed, variation);
+                            EmitBox(m, lx, y, lz, 0.1f, 0.45f, 0.62f, 0.9f, 0.58f, 0.95f, B.SneakerSole, variation);
                             continue;
                         }
                         bool glass = b == B.Glass;
@@ -191,28 +197,71 @@ namespace Deadhaul.Core
             }
         }
 
-        /// <summary>Kleine plant: een half-hoog kubusje in het midden van de voxel.</summary>
-        static void EmitCrop(MeshData m, int lx, int y, int lz, byte b, int variation)
+        /// <summary>Een doosje binnen een voxel (fracties 0..1, hoogte mag boven 1 uitkomen).</summary>
+        static void EmitBox(MeshData m, int lx, int y, int lz, float fx0, float fy0, float fz0, float fx1, float fy1, float fz1, byte color, int variation)
         {
             float vs = World.VoxelSize;
-            float x0 = (lx + 0.28f) * vs, x1 = (lx + 0.72f) * vs, y0 = y * vs, y1 = (y + 0.55f) * vs, z0 = (lz + 0.28f) * vs, z1 = (lz + 0.72f) * vs;
-            float u = Palette.U(b, variation), v = Palette.V(3);
+            float x0 = (lx + fx0) * vs, x1 = (lx + fx1) * vs, y0 = (y + fy0) * vs, y1 = (y + fy1) * vs, z0 = (lz + fz0) * vs, z1 = (lz + fz1) * vs;
+            float u = Palette.U(color, variation), v = Palette.V(3);
             for (int f = 0; f < 6; f++)
             {
-                if (f == 3) continue;
+                if (f == 3 && fy0 <= 0.001f) continue;
                 int start = m.VertexCount;
                 for (int k = 0; k < 4; k++)
                 {
                     int c1 = C1[k], c2 = C2[k];
-                    float fx = O[f, 0] + T1[f, 0] * c1 + T2[f, 0] * c2;
-                    float fy = O[f, 1] + T1[f, 1] * c1 + T2[f, 1] * c2;
-                    float fz = O[f, 2] + T1[f, 2] * c1 + T2[f, 2] * c2;
-                    m.Positions.Add(fx > 0.5f ? x1 : x0); m.Positions.Add(fy > 0.5f ? y1 : y0); m.Positions.Add(fz > 0.5f ? z1 : z0);
+                    float px = O[f, 0] + T1[f, 0] * c1 + T2[f, 0] * c2;
+                    float py = O[f, 1] + T1[f, 1] * c1 + T2[f, 1] * c2;
+                    float pz = O[f, 2] + T1[f, 2] * c1 + T2[f, 2] * c2;
+                    m.Positions.Add(px > 0.5f ? x1 : x0); m.Positions.Add(py > 0.5f ? y1 : y0); m.Positions.Add(pz > 0.5f ? z1 : z0);
                     m.Normals.Add(N[f, 0]); m.Normals.Add(N[f, 1]); m.Normals.Add(N[f, 2]);
                     m.Uvs.Add(u); m.Uvs.Add(v);
                 }
                 m.Opaque.Add(start); m.Opaque.Add(start + 1); m.Opaque.Add(start + 2);
                 m.Opaque.Add(start); m.Opaque.Add(start + 2); m.Opaque.Add(start + 3);
+            }
+        }
+
+        /// <summary>Planten en gewassen, elk met een eigen silhouet.</summary>
+        static void EmitPlant(MeshData m, int lx, int y, int lz, byte b, int v)
+        {
+            float j = (v - 1.5f) * 0.04f;   // kleine variatie per plant
+            switch (b)
+            {
+                case B.Potato:
+                    EmitBox(m, lx, y, lz, 0.15f, 0, 0.15f, 0.85f, 0.38f + j, 0.85f, B.Potato, v); break;
+                case B.Wheat:
+                    for (int k = 0; k < 3; k++) { float o = 0.15f + k * 0.28f; EmitBox(m, lx, y, lz, o, 0, 0.2f + k * 0.05f, o + 0.12f, 0.9f + j + k * 0.04f, 0.8f, B.Wheat, v); }
+                    break;
+                case B.Corn:
+                    EmitBox(m, lx, y, lz, 0.42f, 0, 0.42f, 0.58f, 1.7f + j, 0.58f, B.Corn, v);
+                    EmitBox(m, lx, y, lz, 0.2f, 0.6f, 0.45f, 0.8f, 0.7f, 0.55f, B.Corn, v);
+                    EmitBox(m, lx, y, lz, 0.55f, 0.85f, 0.4f, 0.72f, 1.15f, 0.6f, B.Wheat, v);
+                    break;
+                case B.Cabbage:
+                    EmitBox(m, lx, y, lz, 0.18f, 0, 0.18f, 0.82f, 0.5f + j, 0.82f, B.Cabbage, v);
+                    EmitBox(m, lx, y, lz, 0.1f, 0, 0.3f, 0.9f, 0.25f, 0.7f, B.Potato, v);
+                    break;
+                case B.Carrot:
+                    EmitBox(m, lx, y, lz, 0.38f, 0, 0.38f, 0.62f, 0.12f, 0.62f, B.Pumpkin, v);
+                    EmitBox(m, lx, y, lz, 0.3f, 0.12f, 0.3f, 0.7f, 0.5f + j, 0.7f, B.Carrot, v);
+                    break;
+                case B.Tomato:
+                    EmitBox(m, lx, y, lz, 0.46f, 0, 0.46f, 0.54f, 1.1f, 0.54f, B.Wood, v);          // stok
+                    EmitBox(m, lx, y, lz, 0.25f, 0.2f, 0.25f, 0.75f, 0.95f + j, 0.75f, B.Tomato, v);
+                    EmitBox(m, lx, y, lz, 0.2f, 0.45f, 0.62f, 0.36f, 0.6f, 0.78f, B.CarRed, v);     // tomaten
+                    EmitBox(m, lx, y, lz, 0.6f, 0.62f, 0.2f, 0.76f, 0.77f, 0.36f, B.CarRed, v);
+                    break;
+                case B.Pumpkin:
+                    EmitBox(m, lx, y, lz, 0.05f, 0, 0.3f, 0.95f, 0.35f, 0.7f, B.Potato, v);
+                    EmitBox(m, lx, y, lz, 0.2f, 0, 0.2f, 0.8f, 0.55f + j, 0.8f, B.Pumpkin, v);
+                    break;
+                case B.Crop:
+                    EmitBox(m, lx, y, lz, 0.28f, 0, 0.28f, 0.72f, 0.55f, 0.72f, B.Crop, v); break;
+                default: // zaailingen
+                    EmitBox(m, lx, y, lz, 0.4f, 0, 0.4f, 0.6f, 0.22f + j, 0.6f, b, v);
+                    EmitBox(m, lx, y, lz, 0.28f, 0.14f, 0.45f, 0.72f, 0.2f, 0.55f, b, v);
+                    break;
             }
         }
 

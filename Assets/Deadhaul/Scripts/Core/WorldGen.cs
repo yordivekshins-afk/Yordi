@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 
 namespace Deadhaul.Core
 {
@@ -13,7 +14,7 @@ namespace Deadhaul.Core
         public string Kind;       // capital, stad, dorp, gehucht
     }
 
-    public enum ColumnKind : byte { Nature, Highway, Street, Sidewalk, Lot, Bridge }
+    public enum ColumnKind : byte { Nature, Highway, Street, Sidewalk, Lot, Bridge, Settlement }
 
     public struct Column
     {
@@ -164,6 +165,41 @@ namespace Deadhaul.Core
             return t <= 0 ? 0 : MathF.Pow(t, 1.4f);
         }
 
+        // ------------------------------------------------------------ nederzettingen
+        readonly ConcurrentDictionary<long, Settlement> settlements = new ConcurrentDictionary<long, Settlement>();
+        static readonly Settlement NoSettlement = new Settlement();
+
+        /// <summary>Nederzetting halverwege twee steden, net ten noorden van de oost-westsnelweg.</summary>
+        public Settlement GetSettlement(int i, int j)
+        {
+            long key = ((long)i << 32) ^ (uint)j;
+            var st = settlements.GetOrAdd(key, k =>
+            {
+                if (Hash.H2(i, j, Seed ^ 0x5e77) > 0.68f && !(i == 0 && j == 0)) return NoSettlement;
+                int x0 = i * CityCell - Settlement.W / 2, z0 = j * CityCell + Half + HW + 8;
+                int cx = x0 + Settlement.W / 2, cz = z0 + Settlement.D / 2;
+                if (RadiationAt(cx, cz, out _) > 0) return NoSettlement;
+                if (CityAt(cx, cz, out _, out _) != null) return NoSettlement;
+                float bh = BaseHeight(cx, cz);
+                if (bh < World.Sea + 2 || bh > World.Sea + 32) return NoSettlement;
+                return Settlement.Layout(i, j, x0, z0, (int)MathF.Round(Math.Max(World.Sea + 3, bh)), Seed);
+            });
+            return ReferenceEquals(st, NoSettlement) ? null : st;
+        }
+
+        /// <summary>De nederzetting waar (x,z) in of vlak naast ligt; dist = afstand buiten de rand (0 = binnen).</summary>
+        public Settlement SettlementNear(int x, int z, out float dist)
+        {
+            dist = 1e9f;
+            int i = FloorDiv(x + CityCell / 2, CityCell), j = FloorDiv(z - Half, CityCell);
+            var st = GetSettlement(i, j);
+            if (st == null) return null;
+            float dx = Math.Max(0, Math.Max(st.X0 - x, x - (st.X0 + Settlement.W - 1)));
+            float dz = Math.Max(0, Math.Max(st.Z0 - z, z - (st.Z0 + Settlement.D - 1)));
+            dist = MathF.Sqrt(dx * dx + dz * dz);
+            return dist < 20 ? st : null;
+        }
+
         /// <summary>Afstand tot de dichtstbijzijnde snelweglijn.</summary>
         public int RoadAt(int x, int z, out bool ns, out int line)
         {
@@ -210,6 +246,13 @@ namespace Deadhaul.Core
                 else if (sx < 10 || sx >= 46 || sz < 10 || sz >= 46) col.Kind = ColumnKind.Sidewalk;
                 else col.Kind = ColumnKind.Lot;
                 h = city.Base;
+            }
+            var settle = SettlementNear(x, z, out float sd);
+            if (settle != null && col.Kind != ColumnKind.Highway && col.Kind != ColumnKind.Bridge)
+            {
+                float sf = 1 - Smooth(sd / 18f);
+                h += (settle.Base - h) * sf;
+                if (sd <= 0) { col.Kind = ColumnKind.Settlement; h = settle.Base; }
             }
             float rad = RadiationAt(x, z, out float rel);
             col.Rad = rad; col.CraterD = rel;
@@ -415,6 +458,7 @@ namespace Deadhaul.Core
                         case ColumnKind.Sidewalk: top = B.Sidewalk; break;
                         case ColumnKind.Lot: top = c.Rad > 0.3f ? B.Ash : m < -0.2f ? B.DeadGrass : B.Grass; break;
                         case ColumnKind.Bridge: top = B.Stone; break;
+                        case ColumnKind.Settlement: top = Hash.H2(x, z, Seed ^ 0x5e) < 0.25f ? B.Dirt : B.Grass; break;
                         default:
                             if (h <= World.Sea + 1) top = h < World.Sea - 2 ? B.Gravel : B.Sand;
                             else if (slope > 4 || h > World.Sea + 44) top = B.Stone;
@@ -456,6 +500,18 @@ namespace Deadhaul.Core
                     var s = GetLot(kx, kz);
                     if (s != null) WriteLot(s, ref o);
                 }
+
+            // 2b. nederzettingen
+            {
+                var seen = new HashSet<Settlement>();
+                for (int k = 0; k < 4; k++)
+                {
+                    int sx = k % 2 == 0 ? o.Ox : o.Ox + P - 1, sz = k < 2 ? o.Oz : o.Oz + P - 1;
+                    var st = SettlementNear(sx, sz, out float sdist);
+                    if (st == null || !seen.Add(st)) continue;
+                    WriteSettlement(st, ref o);
+                }
+            }
 
             // 3. straatlantaarns
             for (int pz = 0; pz < P; pz++)
@@ -684,6 +740,20 @@ namespace Deadhaul.Core
                         }
                     }
             }
+        }
+
+        void WriteSettlement(Settlement st, ref ChunkWriter o)
+        {
+            const int P = World.Pad;
+            int x0 = Math.Max(st.X0, o.Ox), x1 = Math.Min(st.X0 + Settlement.W - 1, o.Ox + P - 1);
+            int z0 = Math.Max(st.Z0, o.Oz), z1 = Math.Min(st.Z0 + Settlement.D - 1, o.Oz + P - 1);
+            for (int z = z0; z <= z1; z++)
+                for (int x = x0; x <= x1; x++)
+                    for (int ly = 0; ly <= 16; ly++)
+                    {
+                        int b = st.BlockAt(x - st.X0, ly, z - st.Z0, Seed);
+                        if (b >= 0) o.Set(x, st.Base + ly, z, (byte)b);
+                    }
         }
 
         void WriteCars(ref ChunkWriter o, Column[] cols)
