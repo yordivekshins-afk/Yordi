@@ -1,17 +1,51 @@
 # Deadhaul
 
-Open-world post-apocalyptische survival-RPG in **Unity 6**, 3D voxelwereld met **HDRP-raytracing**.
+Open-world post-apocalyptische survival-RPG in **Unity 6 (HDRP)** met een 3D-voxelwereld en **raytracing**.
 
-- Ontwerpdossier (v0.3): [`archive/deadhaul/ontwerpdossier.html`](archive/deadhaul/ontwerpdossier.html)
+- Wat er al in zit en wat er komt: [`ROADMAP.md`](ROADMAP.md)
+- Oorspronkelijk ontwerpdossier (v0.3): [`archive/deadhaul/ontwerpdossier.html`](archive/deadhaul/ontwerpdossier.html)
 
-## Je Unity-project in deze repo zetten (eenmalig)
+## Openen en spelen
 
-1. Installeer [GitHub Desktop](https://desktop.github.com) en log in.
-2. **File → Clone repository** → kies `yordivekshins-afk/Yordi` → Clone.
-3. Rechtsboven bij **Current branch**: kies `claude/focused-brown-o1nptd`.
-4. Sluit Unity. Kopieer uit je Deadhaul-projectmap de mappen **`Assets`**, **`Packages`** en
-   **`ProjectSettings`** naar de gekloonde map `Yordi` (naast deze README).
-   `Library`, `Temp`, `Logs` en `UserSettings` hoeven niet mee; die worden genegeerd.
-5. In GitHub Desktop: typ een samenvatting (bijv. "Unity-project Deadhaul"), klik **Commit**, dan **Push origin**.
+Nodig: **Unity 6** (6000.0 of nieuwer) via Unity Hub, Windows. Voor raytracing: een NVIDIA RTX- of AMD RX 6000+-kaart
+(zonder zo'n kaart werkt het spel ook, dan met schermruimte-effecten).
 
-Grote bestanden (FBX, PNG, WAV, …) gaan automatisch via Git LFS (zie `.gitattributes`).
+1. Haal de repo op met GitHub Desktop (**File → Clone repository** → `yordivekshins-afk/Yordi`) en kies de branch
+   `claude/focused-brown-o1nptd`.
+2. Unity Hub → **Add → Add project from disk** → kies de map `Yordi`. Open het project
+   (kies je geïnstalleerde Unity 6-versie als Hub erom vraagt).
+3. Vraagt Unity om het nieuwe Input System aan te zetten of opnieuw op te starten: klik **Yes**.
+4. Er verschijnt een vraag "Het project is nog niet ingesteld" → **Ja, instellen**
+   (of later via het menu **Deadhaul → Project instellen**).
+5. Het **HDRP Wizard**-venster gaat open: klik op het tabblad **HDRP** op **Fix All**, en op het tabblad
+   **HDRP + DXR** ook op **Fix All**. Start Unity opnieuw als dat gevraagd wordt (DirectX 12).
+6. Open de scène `Assets/Deadhaul/Scenes/Deadhaul` en druk op **Play**.
+
+### Besturing
+
+| Toets | Actie |
+|---|---|
+| WASD, Shift, C, Spatie | lopen, sprinten, sluipen, springen/zwemmen |
+| Muis | rondkijken |
+| Linkermuis (vasthouden) | slopen/slaan |
+| Rechtermuis | blok bouwen (met bouwmateriaal geselecteerd) |
+| E | doorzoeken, plukken, drinken in het water |
+| Q | eten/drinken/verbinden met het geselecteerde voorwerp |
+| 1–6 of scrollen | snelbalk |
+| Tab | rugzak en crafting |
+| F | zaklamp |
+| V | first-/third-person |
+| F5 | opslaan |
+| Esc | menu (raytracing aan/uit, zichtafstand, muisgevoeligheid) |
+
+## Structuur
+
+| Map | Inhoud |
+|---|---|
+| `Assets/Deadhaul/Scripts/Core` | Pure C# zonder Unity: wereldgenerator, voxel-mesher, opslag, botsingen, items, survival |
+| `Assets/Deadhaul/Scripts/Runtime` | Unity: chunk-streaming, HDRP-omgeving, speler, personage, HUD, opslaan |
+| `Assets/Deadhaul/Scripts/Editor` | Menu **Deadhaul**: project instellen, save wissen |
+| `Tests/CoreTests` | Tests voor de kern: `dotnet run --project Tests/CoreTests` (`-- map kaart.png` rendert een wereldkaart) |
+| `Tests/UnityTypeCheck` | Compileert alle Unity-scripts zonder Unity: `dotnet build Tests/UnityTypeCheck` |
+
+Grote bestanden (FBX, PNG, WAV, …) gaan via Git LFS (zie `.gitattributes`).
