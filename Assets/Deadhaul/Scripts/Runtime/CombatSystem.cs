@@ -46,6 +46,11 @@ namespace Deadhaul
         }
 
         const int MaxStuckArrows = 60;
+        const int MaxFollowers = 3;
+        int groupCounter;
+        readonly HashSet<int> announced = new HashSet<int>(), demanding = new HashSet<int>(), fighting = new HashSet<int>();
+        struct SavedFollower { public string Name; public Stack Weapon; public float Health; public List<Stack> Loot; }
+        readonly List<SavedFollower> pendingFollowers = new List<SavedFollower>();
         readonly List<Transform> stuckArrows = new List<Transform>();
 
         public ActorWorld Actors { get; } = new ActorWorld();
@@ -97,6 +102,7 @@ namespace Deadhaul
             ctx.PlayerFlashlight = game.Player.Flashlight;
 
             Spawn(dt);
+            SpawnPendingFollowers();
             TickNpcs(dt);
             StepBullets(dt);
             StepGrenades(dt);
@@ -114,12 +120,13 @@ namespace Deadhaul
             {
                 var v = npcs[i];
                 if (v.Npc.Home2 != null) continue;
+                if (v.Npc.LeaderId >= 0 && v.Npc.Alive) continue;      // metgezellen blijven
                 float d = Dist(v.Npc.Pos, pp);
                 if (d > 160 || (!v.Npc.Alive && v.Npc.DeadTime > 240)) Despawn(i);
             }
             int vx = Mathf.FloorToInt(pp.X / World.VoxelSize), vz = Mathf.FloorToInt(pp.Z / World.VoxelSize);
             float rad = game.Gen.RadiationAt(vx, vz, out _);
-            int alive = 0; foreach (var v in npcs) if (v.Npc.Alive && v.Npc.Home2 == null) alive++;
+            int alive = 0; foreach (var v in npcs) if (v.Npc.Alive && v.Npc.Home2 == null && v.Npc.LeaderId < 0) alive++;
             int budget = ctx.Daylight < 0.3f ? 12 : 8;
             if (rad > 0.1f) budget += 4;
             if (alive >= budget) return;
@@ -133,12 +140,16 @@ namespace Deadhaul
             var group = Spawner.Choose(game.Gen, svx, svz, ctx.Daylight, srad, rng);
             if (group == null) return;
             var g = group.Value;
+            int gid = ++groupCounter;
+            // sommige bendes schieten niet meteen maar eisen tol
+            int toll = g.Type == NpcType.Bendelid && rng.NextDouble() < 0.45 ? 30 + rng.Next(4) * 15 : 0;
             for (int k = 0; k < g.Count; k++)
             {
                 float ox = sx + (float)(rng.NextDouble() - 0.5) * 6, oz = sz + (float)(rng.NextDouble() - 0.5) * 6;
                 float gy = PlayerController.GroundAt(game.Chunks.Store, ox, oz);
                 if (gy < World.SeaLevelMeters + 0.3f) continue;       // niet in het water
-                SpawnNpc(g.Type, new V3(ox, gy + 0.02f, oz));
+                var nv = SpawnNpc(g.Type, new V3(ox, gy + 0.02f, oz));
+                nv.Npc.Group = gid; nv.Npc.Toll = toll;
             }
         }
 
@@ -213,6 +224,20 @@ namespace Deadhaul
                 case NpcType.Brute:
                     v.Human = VoxelCharacter.Build(v.Root, VoxelCharacter.Look.Brute);
                     break;
+                case NpcType.Zwerver:
+                {
+                    var eq = SettlerGear(rng.NextDouble() < 0.5 ? SettlerJob.Sjouwer : SettlerJob.Boer);
+                    n.ArmorHead = eq.ArmorFor(HitZone.Hoofd); n.ArmorBody = eq.ArmorFor(HitZone.Romp); n.ArmorLegs = eq.ArmorFor(HitZone.Benen);
+                    n.Name = Settlement.People[rng.Next(Settlement.People.Length)];
+                    double r = rng.NextDouble();
+                    n.Weapon = r < 0.45 ? Loot.MakeItem("pistool", rng) : r < 0.6 ? Loot.MakeItem("shotgun", rng) : r < 0.8 ? new Stack("boog", 1) : new Stack(rng.NextDouble() < 0.5 ? "mes" : "machete", 1);
+                    if (n.Weapon.Def.GunDamage > 0) n.Weapon.Ammo = Arsenal.Stats(n.Weapon).MagSize;
+                    v.Loot = new List<Stack> { new Stack("water", 1), new Stack("doppen", 5 + rng.Next(20)) };
+                    if (rng.NextDouble() < 0.5) v.Loot.Add(new Stack(rng.NextDouble() < 0.5 ? "bonen" : "brood", 1));
+                    v.Human = VoxelCharacter.Build(v.Root, VoxelCharacter.Look.FromEquipment(eq, rng.NextDouble() < 0.5 ? B.Skin : B.SkinDark, B.Hair));
+                    v.Muzzle = v.Human.SetTool(n.Weapon, out _);
+                    break;
+                }
                 case NpcType.Overlever:
                 {
                     var eq = SettlerGear(job);
@@ -356,6 +381,35 @@ namespace Deadhaul
                 if (wasAlive && !n.Alive) OnDeath(v);
                 SyncView(v, dt);
             }
+            // bendes: samen tol eisen, samen aanvallen
+            demanding.Clear(); fighting.Clear();
+            foreach (var v in npcs)
+            {
+                var n = v.Npc;
+                if (!n.Alive || n.Group == 0) continue;
+                if (n.State == NpcState.Eisen) demanding.Add(n.Group);
+                if (n.State == NpcState.Aanvallen && n.TargetId == PlayerActor.Id) fighting.Add(n.Group);
+            }
+            foreach (var v in npcs)
+            {
+                var n = v.Npc;
+                if (!n.Alive || n.Group == 0) continue;
+                if (fighting.Contains(n.Group) && n.State == NpcState.Eisen) { n.State = NpcState.Aanvallen; n.StateTime = 0; }
+                else if (demanding.Contains(n.Group) && !fighting.Contains(n.Group) && !n.Paid && (n.State == NpcState.Zwerven || n.State == NpcState.Rust || n.State == NpcState.Onderzoeken))
+                { n.State = NpcState.Eisen; n.TargetId = PlayerActor.Id; n.Awareness = 1; n.StateTime = 0; }
+            }
+            foreach (var gid in demanding)
+            {
+                if (!announced.Add(gid)) continue;
+                foreach (var v in npcs)
+                    if (v.Npc.Group == gid && v.Npc.State == NpcState.Eisen)
+                    {
+                        game.Hud.Message($"{v.Npc.Def.Name}: \"Halt! {v.Npc.Toll} doppen, of je bent er geweest.\"  (E om te praten)");
+                        Sfx.Instance.Play("slag", ToV(v.Npc.Chest), 0.2f, 1.6f, 30f);
+                        break;
+                    }
+            }
+
             // wie één bewoner aanvalt, krijgt het hele dorp tegen zich
             foreach (var kv in settled)
             {
@@ -386,16 +440,27 @@ namespace Deadhaul
         /// <summary>Spreek een bewoner aan: handelaar opent de winkel, anderen zeggen iets.</summary>
         public bool TryTalk(Vector3 eye, Vector3 dir)
         {
-            NpcView best = null; float bestD = 3.2f;
+            NpcView best = null; float bestScore = float.MaxValue;
             foreach (var v in npcs)
             {
-                if (v.Npc.Home2 == null || !v.Npc.Alive) continue;
-                var c = ToV(v.Npc.Chest);
+                var nn = v.Npc;
+                if (!nn.Alive) continue;
+                bool demand = nn.State == NpcState.Eisen;
+                if (nn.Home2 == null && nn.Def.Type != NpcType.Zwerver && !demand) continue;
+                var c = ToV(nn.Chest);
                 float d = Vector3.Distance(eye, c);
-                if (d < bestD && Vector3.Dot((c - eye).normalized, dir) > 0.6f) { best = v; bestD = d; }
+                float dot = Vector3.Dot((c - eye).normalized, dir);
+                if (d < (demand ? 16f : 3.2f) && dot > (demand ? 0.9f : 0.6f) && d < bestScore) { best = v; bestScore = d; }
             }
             if (best == null) return false;
             var n = best.Npc;
+            if (n.State == NpcState.Eisen) { Negotiate(best); return true; }
+            if (n.Def.Type == NpcType.Zwerver)
+            {
+                if (n.Angry) { game.Hud.Message($"{n.Name} richt zijn wapen op je. Hier valt niet meer te praten."); return true; }
+                if (n.LeaderId == PlayerActor.Id) FollowerDialog(best); else RecruitDialog(best);
+                return true;
+            }
             if (n.Angry) { game.Hud.Message($"{n.Name} wil niets meer met je te maken hebben."); return true; }
             if (n.Sleeping) { game.Hud.Message($"{n.Name} slaapt."); return true; }
             float h = game.Clock.HourOfDay;
@@ -404,6 +469,156 @@ namespace Deadhaul
             game.Hud.Message($"{n.Name} ({job}): \"{SettlerBrain.Line(n, rng)}\"");
             if (n.Job == SettlerJob.Handelaar) game.Hud.Message("De markt is open van 8 tot 19 uur.");
             return true;
+        }
+
+        // ------------------------------------------------ metgezellen en onderhandelen
+        public int FollowerCount { get { int c = 0; foreach (var v in npcs) if (v.Npc.Alive && v.Npc.LeaderId == PlayerActor.Id) c++; return c; } }
+
+        static readonly string[] WandererLines =
+        {
+            "Alleen overleef je hier niet lang. Met z'n tweeën misschien wel.",
+            "Ik zoek al weken naar een reden om niet op te geven. Heb je eten?",
+            "Ik kan schieten, sjouwen en mijn mond houden. Wat zoek je?",
+            "De ghouls komen elke nacht dichterbij. Ik wil hier weg.",
+        };
+
+        void RecruitDialog(NpcView v)
+        {
+            var n = v.Npc; var inv = game.Inventory;
+            bool full = FollowerCount >= MaxFollowers;
+            int food = FoodSlot();
+            var ch = new List<Hud.Choice>
+            {
+                new Hud.Choice("\"Reis met me mee.\"  (1 maaltijd + 1 water)", () => { inv.TakeFromSlot(FoodSlot()); inv.Remove("water", 1); Recruit(v); }, !full && food >= 0 && inv.Count("water") > 0),
+                new Hud.Choice("\"Reis met me mee.\"  (40 doppen)", () => { inv.Remove("doppen", 40); Recruit(v); }, !full && inv.Count("doppen") >= 40),
+                new Hud.Choice("\"Succes daar buiten.\"", null),
+            };
+            string weapon = n.Weapon.Empty ? "ongewapend" : n.Weapon.Def.Name.ToLowerInvariant();
+            game.Hud.OpenDialog($"{n.Name}, zwerver ({weapon})", $"\"{WandererLines[n.Seed % WandererLines.Length]}\"" + (full ? "\n(Je reist al met drie metgezellen.)" : ""), ch);
+        }
+
+        int FoodSlot()
+        {
+            var inv = game.Inventory;
+            for (int i = 0; i < inv.Capacity; i++) { var d = inv.Slots[i].Def; if (d != null && d.Kind == ItemKind.Food && d.Food > 0) return i; }
+            return -1;
+        }
+
+        void Recruit(NpcView v)
+        {
+            var n = v.Npc;
+            n.LeaderId = PlayerActor.Id; n.Waiting = false; n.Angry = false; n.TargetId = -1; n.State = NpcState.Zwerven;
+            game.Hud.Message($"{n.Name} reist nu met je mee. Praat met {n.Name} (E) voor bevelen.");
+        }
+
+        void FollowerDialog(NpcView v)
+        {
+            var n = v.Npc; var inv = game.Inventory;
+            int sel = game.Player.Selected;
+            var held = inv.Slots[sel];
+            bool canGive = !held.Empty && held.Def.Kind == ItemKind.Weapon;
+            var ch = new List<Hud.Choice>
+            {
+                n.Waiting ? new Hud.Choice("\"Volg me.\"", () => { n.Waiting = false; game.Hud.Message($"{n.Name} volgt je weer."); })
+                          : new Hud.Choice("\"Wacht hier.\"", () => { n.Waiting = true; n.WaitPos = n.Pos; game.Hud.Message($"{n.Name} wacht hier."); }),
+                new Hud.Choice(canGive ? $"\"Neem dit.\"  (geef {held.Def.Name})" : "\"Neem dit.\"  (houd een wapen vast om het te geven)", () =>
+                {
+                    var old = n.Weapon;
+                    n.Weapon = inv.Slots[sel];
+                    if (n.Weapon.Def.GunDamage > 0) n.Weapon.Ammo = Arsenal.Stats(n.Weapon).MagSize;
+                    inv.Slots[sel] = old;
+                    v.Muzzle = v.Human.SetTool(n.Weapon, out _);
+                    game.Player.RefreshTool();
+                    game.Hud.Message($"{n.Name} neemt de {n.Weapon.Def.Name.ToLowerInvariant()} aan" + (old.Empty ? "." : $" en geeft je de {old.Def.Name.ToLowerInvariant()}."));
+                }, canGive),
+                new Hud.Choice("\"Wat draag je bij je?\"", () => { v.Loot ??= new List<Stack>(); game.Hud.OpenLoot(v.Loot, "tas van " + n.Name); }),
+                new Hud.Choice("\"Ga je eigen weg.\"", () => { n.LeaderId = -1; n.Waiting = false; n.Home = n.Pos; game.Hud.Message($"{n.Name} gaat alleen verder."); }),
+            };
+            float hp = n.Health / n.MaxHealth;
+            game.Hud.OpenDialog($"{n.Name}, metgezel", $"Gezondheid {hp * 100:0}%  ·  {(n.Weapon.Empty ? "ongewapend" : n.Weapon.Def.Name)}\n\"{(hp < 0.4f ? "Ik heb een verband nodig…" : n.Waiting ? "Ik hou de boel hier in de gaten." : "Ik ben er klaar voor.")}\"", ch);
+        }
+
+        void Negotiate(NpcView v)
+        {
+            var n = v.Npc; var inv = game.Inventory;
+            int toll = n.Toll;
+            float armor = game.Equipment.ArmorFor(HitZone.Romp);
+            bool gun = game.Player.HasGun && game.Player.Weapon.Damage > 35;
+            float chance = Mathf.Clamp(0.12f + armor * 0.6f + (gun ? 0.15f : 0) + FollowerCount * 0.12f + Mathf.Min(0.2f, Kills * 0.01f), 0.05f, 0.9f);
+            int group = n.Group;
+            var ch = new List<Hud.Choice>
+            {
+                new Hud.Choice($"Betalen  ({toll} doppen)", () =>
+                {
+                    inv.Remove("doppen", toll);
+                    foreach (var o in npcs) if (o.Npc.Group == group) { o.Npc.Paid = true; if (o.Npc.State == NpcState.Eisen) o.Npc.State = NpcState.Zwerven; o.Npc.TargetId = -1; }
+                    game.Hud.Message("Ze tellen de doppen en laten je gaan.");
+                }, inv.Count("doppen") >= toll),
+                new Hud.Choice($"Dreigen  (kans {chance * 100:0}%)", () =>
+                {
+                    if (rng.NextDouble() < chance)
+                    {
+                        foreach (var o in npcs) if (o.Npc.Group == group && o.Npc.Alive) { o.Npc.Paid = true; o.Npc.State = NpcState.Vluchten; o.Npc.StateTime = 0; o.Npc.LastSeen = PlayerActor.Pos; }
+                        game.Hud.Message($"{n.Def.Name}: \"Rustig, rustig… we gaan al.\"");
+                    }
+                    else { GroupAttack(group); game.Hud.Message($"{n.Def.Name}: \"Jij? Ons bang maken? Vuur!\""); }
+                }),
+                new Hud.Choice("Weigeren", () => { GroupAttack(group); game.Hud.Message($"{n.Def.Name}: \"Verkeerde keuze.\""); }),
+            };
+            game.Hud.OpenDialog($"{n.Def.Name} eist tol", $"\"Dit stuk is van ons. {toll} doppen en je loopt door. Anders…\"\nJe hebt {inv.Count("doppen")} doppen.", ch);
+        }
+
+        void GroupAttack(int group)
+        {
+            foreach (var o in npcs)
+                if (o.Npc.Group == group && o.Npc.Alive) { o.Npc.State = NpcState.Aanvallen; o.Npc.TargetId = PlayerActor.Id; o.Npc.Awareness = 1; o.Npc.Paid = false; o.Npc.Toll = 0; o.Npc.StateTime = 0; }
+        }
+
+        public void WriteFollowers(System.IO.BinaryWriter w)
+        {
+            var list = new List<NpcView>();
+            foreach (var v in npcs) if (v.Npc.Alive && v.Npc.LeaderId == PlayerActor.Id) list.Add(v);
+            w.Write(list.Count);
+            foreach (var v in list)
+            {
+                w.Write(v.Npc.Name ?? "Zwerver");
+                v.Npc.Weapon.Write(w);
+                w.Write(v.Npc.Health);
+                var loot = v.Loot ?? new List<Stack>();
+                w.Write(loot.Count);
+                foreach (var s in loot) s.Write(w);
+            }
+        }
+
+        public void ReadFollowers(System.IO.BinaryReader r)
+        {
+            pendingFollowers.Clear();
+            int count = r.ReadInt32();
+            for (int i = 0; i < count; i++)
+            {
+                var f = new SavedFollower { Name = r.ReadString(), Weapon = Stack.Read(r), Health = r.ReadSingle(), Loot = new List<Stack>() };
+                int lc = r.ReadInt32();
+                for (int k = 0; k < lc; k++) f.Loot.Add(Stack.Read(r));
+                pendingFollowers.Add(f);
+            }
+        }
+
+        void SpawnPendingFollowers()
+        {
+            if (pendingFollowers.Count == 0) return;
+            var pp = game.Player.Pos;
+            for (int i = 0; i < pendingFollowers.Count; i++)
+            {
+                var f = pendingFollowers[i];
+                float ang = i * 2.1f;
+                float x = pp.X + Mathf.Cos(ang) * 2.5f, z = pp.Z + Mathf.Sin(ang) * 2.5f;
+                var v = SpawnNpc(NpcType.Zwerver, new V3(x, PlayerController.GroundAt(game.Chunks.Store, x, z) + 0.02f, z));
+                var n = v.Npc;
+                n.Name = f.Name; n.Weapon = f.Weapon; n.Health = Mathf.Max(10, f.Health); n.LeaderId = PlayerActor.Id;
+                v.Loot = f.Loot;
+                v.Muzzle = v.Human.SetTool(n.Weapon, out _);
+            }
+            pendingFollowers.Clear();
         }
 
         void OnDeath(NpcView v)
@@ -417,6 +632,7 @@ namespace Deadhaul
                 game.Hud.Message(n.Home2 != null ? $"Je hebt {n.Name} gedood. {n.Home2.Name} zal dit niet vergeten." : $"{n.Def.Name} uitgeschakeld.");
             }
             if (n.Home2 != null) deadSettlers.Add((n.Home2, n.BedIndex));
+            if (n.LeaderId == PlayerActor.Id) game.Hud.Banner(n.Name + " is gesneuveld", "je metgezel is dood");
             v.Loot ??= new List<Stack>();
             if (!n.Weapon.Empty) v.Loot.Add(n.Weapon);
             if (v.Arrows > 0) v.Loot.Add(new Stack("pijl", v.Arrows));
@@ -456,7 +672,7 @@ namespace Deadhaul
                 v.Human.Sitting = still && (n.Task == SettlerTask.Eten || n.Task == SettlerTask.Praten) && n.Job != SettlerJob.Kok && n.Home2 != null;
                 v.Human.Working = still && n.Working && !v.Human.Sitting;
                 v.Human.Carrying = n.Home2 != null && n.Carry > 0 && (n.Job == SettlerJob.Sjouwer || n.Task == SettlerTask.Afleveren);
-                v.Human.Animate(n.Speed01, false, n.Grounded, n.State == NpcState.Aanvallen && v.Muzzle != null, n.MeleeThisFrame ? 1 : 0, dt);
+                v.Human.Animate(n.Speed01, false, n.Grounded, (n.State == NpcState.Aanvallen || n.State == NpcState.Eisen) && v.Muzzle != null, n.MeleeThisFrame ? 1 : 0, dt);
             }
             if (v.Animal) v.Animal.Animate(n.Speed01, dt, n.MeleeThisFrame);
         }
@@ -695,6 +911,8 @@ namespace Deadhaul
         {
             for (int i = npcs.Count - 1; i >= 0; i--) Despawn(i);
             settled.Clear();
+            pendingFollowers.Clear();
+            announced.Clear();
             bullets.Clear();
             foreach (var a in stuckArrows) Destroy(a.gameObject);
             stuckArrows.Clear();

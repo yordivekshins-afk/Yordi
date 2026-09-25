@@ -499,6 +499,43 @@ static class Program
             Check(gunman.InCover && Brain.CoverBlocks(gunman.Pos, player, ctx), $"na een treffer rent hij achter de muur (z={gunman.Pos.Z:0.0} m)");
             Check(Blocks.SurfaceOf(B.Asphalt) == Surface.Hard && Blocks.SurfaceOf(B.Planks) == Surface.Hout && Blocks.SurfaceOf(B.Grass) == Surface.Zacht
                   && Blocks.SurfaceOf(B.Snow) == Surface.Sneeuw && Blocks.SurfaceOf(B.CarRed) == Surface.Metaal, "voetstappen klinken per ondergrond anders");
+            // metgezel volgt de speler (arena leeg, alleen de speler)
+            actors.All.RemoveAll(a => a != player);
+            player.Pos = new V3(-10, fy, -10);
+            var buddy = actors.Add(new Npc(Npcs.Defs[NpcType.Zwerver], new V3(-10, fy, -3), 40)) ;
+            buddy.LeaderId = player.Id;
+            for (int i = 0; i < 30 * 2; i++) Brain.Tick(buddy, 1f / 30f, ctx);
+            float near = (buddy.Pos - player.Pos).Length;
+            player.Pos = new V3(-10, fy, 6);
+            for (int i = 0; i < 30 * 6; i++) Brain.Tick(buddy, 1f / 30f, ctx);
+            float after = (buddy.Pos - player.Pos).Length;
+            Check(near < 5.5f && after < 6f, $"metgezel blijft bij je en loopt mee ({near:0.0} m, na verplaatsen {after:0.0} m)");
+            buddy.Waiting = true; buddy.WaitPos = buddy.Pos;
+            var waitAt = buddy.Pos;
+            player.Pos = new V3(-10, fy, 10);
+            for (int i = 0; i < 30 * 3; i++) Brain.Tick(buddy, 1f / 30f, ctx);
+            Check((buddy.Pos - waitAt).Length < 1.5f, "op bevel wacht hij waar hij staat");
+            buddy.TakeDamage(5, HitZone.Benen, player.Id);
+            Brain.Tick(buddy, 1f / 30f, ctx);
+            Check(!buddy.Angry, "een per ongeluk geraakte metgezel keert zich niet tegen je");
+
+            // tol: bendelid eist doppen in plaats van meteen te schieten
+            actors.Remove(buddy);
+            player.Pos = new V3(20, fy, -12);
+            var toller = actors.Add(new Npc(Npcs.Defs[NpcType.Bendelid], new V3(20, fy, -3), 41)) ;
+            toller.Yaw = 180; toller.Toll = 45;
+            bool fired = false;
+            for (int i = 0; i < 30 * 3; i++) { Brain.Tick(toller, 1f / 30f, ctx); fired |= toller.FiredThisFrame; }
+            Check(toller.State == NpcState.Eisen && !fired, $"bendelid houdt je staande en eist {toller.Toll} doppen ({toller.State})");
+            toller.Paid = true;
+            for (int i = 0; i < 30 * 4; i++) { Brain.Tick(toller, 1f / 30f, ctx); fired |= toller.FiredThisFrame; }
+            Check(toller.State != NpcState.Aanvallen && !fired, $"na betalen laat hij je gaan ({toller.State})");
+            var greedy = actors.Add(new Npc(Npcs.Defs[NpcType.Bendelid], new V3(22, fy, -3), 42)) ;
+            greedy.Yaw = 180; greedy.Toll = 45;
+            for (int i = 0; i < 30 * 2; i++) Brain.Tick(greedy, 1f / 30f, ctx);
+            greedy.TakeDamage(10, HitZone.Benen, player.Id);
+            for (int i = 0; i < 30 * 2; i++) Brain.Tick(greedy, 1f / 30f, ctx);
+            Check(greedy.State == NpcState.Aanvallen, $"wie op hen schiet, krijgt het gevecht ({greedy.State})");
             var ghoulDef = Npcs.Defs[NpcType.Ghoul];
             Check(!ghoulDef.UsesCover, "mutanten zoeken geen dekking, ze stormen op je af");
         }

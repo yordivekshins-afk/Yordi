@@ -306,7 +306,7 @@ namespace Deadhaul
         }
 
         // ------------------------------------------------------------ opslaan
-        const int SaveVersion = 3;
+        const int SaveVersion = 4;      // 4: metgezellen
 
         public void Save()
         {
@@ -325,6 +325,7 @@ namespace Deadhaul
                 Equipment.Write(w);
                 w.Write(Combat.Kills);
                 Vehicles.Write(w);
+                Combat.WriteFollowers(w);
                 Chunks.Store.WriteEdits(w);
                 Hud.Message("Spel opgeslagen.");
             }
@@ -338,7 +339,8 @@ namespace Deadhaul
             {
                 using var fs = File.OpenRead(SavePath);
                 using var r = new BinaryReader(fs);
-                if (r.ReadInt32() != SaveVersion) return false;
+                int version = r.ReadInt32();
+                if (version != SaveVersion && version != 3) return false;
                 if (r.ReadInt32() != Seed) return false;
                 var p = new V3(r.ReadSingle(), r.ReadSingle(), r.ReadSingle());
                 Player.Yaw = r.ReadSingle(); Player.Pitch = r.ReadSingle();
@@ -349,6 +351,7 @@ namespace Deadhaul
                 Equipment = new Equipment(); Equipment.Read(r);
                 Combat.Kills = r.ReadInt32();
                 Vehicles.Read(r);
+                if (version >= 4) Combat.ReadFollowers(r);
                 Chunks.Store.ReadEdits(r);
                 Chunks.ReloadAll();
                 pendingSpawn = p; pendingFromSave = true; spawned = false;

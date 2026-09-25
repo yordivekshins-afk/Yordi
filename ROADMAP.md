@@ -47,7 +47,8 @@ Werkafspraak uit het dossier blijft: **elke mijlpaal is speelbaar**, en er wordt
 - ✅ Legerposten met zandzakken, tenten, wachttoren en munitiekisten
 - ✅ Lijken doorzoeken, rauw vlees bakken bij het vuur, vacht voor kleding
 - ✅ **Dekking zoeken**: schutters rennen bij herladen of na een treffer achter muren, auto's of heuvels en komen daarna weer tevoorschijn; aaseters dragen soms een boog en mikken hoger op afstand
-- Nog te doen: onderhandelen, instortende gebouwen
+- ✅ **Onderhandelen**: sommige bendes houden je staande en eisen tol — betalen, dreigen (kans hangt af van je bepantsering, wapen en metgezellen) of weigeren
+- Nog te doen: instortende gebouwen
 
 ## ✅ M4 – Levende nederzettingen
 
@@ -59,7 +60,8 @@ Werkafspraak uit het dossier blijft: **elke mijlpaal is speelbaar**, en er wordt
 - ✅ **Landbouw** met zeven gewassen (aardappel, graan, maïs, kool, wortel, tomaat, pompoen) die echt groeien; zelf zaaien en oogsten
 - ✅ Handel met doppen, praten met bewoners; val je iemand aan of steel je van de akker, dan keert het dorp zich tegen je
 - ✅ Nieuwe recepten: brood, groentesoep, gepofte aardappel
-- Nog te doen: rekruteren en je eigen nederzetting bouwen, seizoenen, economie tussen steden, mechaniekers
+- ✅ **Metgezellen**: zwervers in de wildernis en in steden; rekruteer ze voor eten en water of doppen (max. 3), geef ze wapens, laat ze wachten of volgen, bekijk hun tas; ze worden opgeslagen
+- Nog te doen: je eigen nederzetting bouwen, economie tussen steden, mechaniekers
 
 ## ✅ M5 – Voertuigen, boten en vissen
 

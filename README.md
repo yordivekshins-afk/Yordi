@@ -30,7 +30,8 @@ Nodig: **Unity 6** (6000.0 of nieuwer) via Unity Hub, Windows. Voor raytracing: 
 | Linkermuis | schieten / slaan / slopen (vasthouden) |
 | Rechtermuis | richten (met wapen) / blok bouwen (met bouwmateriaal) |
 | R, B | herladen, vuurmodus |
-| E | doorzoeken (kisten, lijken), plukken, drinken in het water |
+| E | doorzoeken (kisten, lijken), plukken, drinken, praten (handelen, zwervers rekruteren, bevelen, onderhandelen), pijlen oprapen |
+| 1–4 in een gesprek | keuze maken |
 | Q | eten/drinken/verbinden, kleding aantrekken |
 | 1–6 of scrollen | snelbalk |
 | Tab | rugzak, uitrusting, wapenbank (rechtsklik op een wapen) en crafting |

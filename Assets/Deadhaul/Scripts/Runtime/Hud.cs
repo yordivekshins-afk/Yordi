@@ -44,7 +44,41 @@ namespace Deadhaul
         public bool LootOpen => loot != null;
         public bool TradeOpen => trade != null;
         public bool VehicleOpen => vehicle != null;
-        public bool CapturesInput => InventoryOpen || LootOpen || TradeOpen || VehicleOpen || MapOpen || Paused || game.InMenu || game.Stats.Dead || !game.Ready;
+        public bool CapturesInput => InventoryOpen || LootOpen || TradeOpen || VehicleOpen || MapOpen || DialogOpen || Paused || game.InMenu || game.Stats.Dead || !game.Ready;
+
+        // gesprekken: een vraag met een paar keuzes (1–4 of klikken)
+        public struct Choice { public string Label; public System.Action Act; public bool Enabled; public Choice(string l, System.Action a, bool e = true) { Label = l; Act = a; Enabled = e; } }
+        string dlgTitle, dlgText; List<Choice> dlgChoices;
+        public bool DialogOpen => dlgChoices != null;
+        public void OpenDialog(string title, string text, List<Choice> choices) { dlgTitle = title; dlgText = text; dlgChoices = choices; InventoryOpen = false; loot = null; trade = null; }
+        public void CloseDialog() => dlgChoices = null;
+
+        void Choose(int i)
+        {
+            if (dlgChoices == null || i < 0 || i >= dlgChoices.Count || !dlgChoices[i].Enabled) return;
+            var act = dlgChoices[i].Act;
+            dlgChoices = null;
+            act?.Invoke();
+        }
+
+        void DialogWindow(float W, float H)
+        {
+            float h = 150 + dlgChoices.Count * 46;
+            var r = new Rect(W / 2 - 300, H * 0.58f - h / 2, 600, h);
+            Frame(r);
+            GUI.Label(new Rect(r.x + 22, r.y + 14, 556, 30), dlgTitle, title);
+            GUI.Label(new Rect(r.x + 22, r.y + 50, 556, 70), dlgText, new GUIStyle(label) { wordWrap = true });
+            float y = r.y + 124;
+            for (int i = 0; i < dlgChoices.Count; i++)
+            {
+                var c = dlgChoices[i];
+                bool was = GUI.enabled;
+                GUI.enabled = c.Enabled;
+                if (GUI.Button(new Rect(r.x + 22, y, 556, 38), $"{i + 1}.  {c.Label}", new GUIStyle(button) { alignment = TextAnchor.MiddleLeft })) { GUI.enabled = was; Choose(i); return; }
+                GUI.enabled = was;
+                y += 46;
+            }
+        }
         Vehicle vehicle;
 
         public void OpenVehicle(Vehicle v) { vehicle = v; InventoryOpen = false; loot = null; trade = null; }
@@ -84,6 +118,7 @@ namespace Deadhaul
             {
                 if (SettingsOpen) SettingsOpen = false;
                 else if (MapOpen) MapOpen = false;
+                else if (DialogOpen) dlgChoices = null;
                 else if (LootOpen) loot = null;
                 else if (TradeOpen) trade = null;
                 else if (VehicleOpen) vehicle = null;
@@ -93,6 +128,7 @@ namespace Deadhaul
             if (kb.tabKey.wasPressedThisFrame || kb.iKey.wasPressedThisFrame) { if (!Paused && !game.Stats.Dead) { InventoryOpen = !InventoryOpen; loot = null; dragSlot = -1; modSlot = -1; } }
             if (kb.hKey.wasPressedThisFrame && game.Player.Vehicle == null) ShowHelp = !ShowHelp;
             if (kb.f5Key.wasPressedThisFrame) game.Save();
+            if (DialogOpen) for (int i = 0; i < 4; i++) if (kb[Key.Digit1 + i].wasPressedThisFrame) { Choose(i); break; }
         }
 
         void Styles()
@@ -201,6 +237,7 @@ namespace Deadhaul
             if (LootOpen) LootWindow(W, H);
             if (TradeOpen) TradeWindow(W, H);
             if (VehicleOpen) VehicleWindow(W, H);
+            if (DialogOpen) DialogWindow(W, H);
             if (game.Player.Vehicle != null) DrivingHud(W, H);
             else if (!CapturesInput) Prompts(W, H);
             if (MapOpen) MapWindow(W, H);

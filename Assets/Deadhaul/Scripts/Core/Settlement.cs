@@ -26,7 +26,7 @@ namespace Deadhaul.Core
         public int Seed;
 
         static readonly string[] Names = { "Nieuwhoop", "Laatste Oogst", "Kraaienhof", "De Schans", "Groenwal", "Morgenrood", "Het Bolwerk", "Stille Akker", "Vrijgrond", "De Put" };
-        static readonly string[] People = { "Milo", "Sanne", "Joost", "Fenna", "Bram", "Lotte", "Ruben", "Noor", "Daan", "Eva", "Thijs", "Mila", "Koen", "Iris", "Sem", "Lieke", "Gijs", "Roos", "Teun", "Jet" };
+        public static readonly string[] People = { "Milo", "Sanne", "Joost", "Fenna", "Bram", "Lotte", "Ruben", "Noor", "Daan", "Eva", "Thijs", "Mila", "Koen", "Iris", "Sem", "Lieke", "Gijs", "Roos", "Teun", "Jet" };
 
         /// <summary>Wereldcoördinaat (voxels) van een lokaal punt.</summary>
         public (int x, int z) ToWorld(int lx, int lz) => (X0 + lx, Z0 + lz);

@@ -3,9 +3,9 @@ using System.Collections.Generic;
 
 namespace Deadhaul.Core
 {
-    public enum NpcType : byte { Aaseter, Bendelid, Scherpschutter, Ghoul, Brute, Mutantwolf, Hert, Overlever }
+    public enum NpcType : byte { Aaseter, Bendelid, Scherpschutter, Ghoul, Brute, Mutantwolf, Hert, Overlever, Zwerver }
 
-    public enum NpcState : byte { Rust, Zwerven, Onderzoeken, Aanvallen, Vluchten, Dood }
+    public enum NpcState : byte { Rust, Zwerven, Onderzoeken, Aanvallen, Vluchten, Dood, Eisen }
 
     public sealed class NpcDef
     {
@@ -37,6 +37,7 @@ namespace Deadhaul.Core
             [NpcType.Brute] = new NpcDef { Type = NpcType.Brute, Name = "Brute", Faction = Faction.Mutant, Health = 380, Speed = 1.3f, RunSpeed = 4.4f, Height = 2.7f, Radius = 0.55f, MeleeDamage = 42, MeleeRange = 2.4f, MeleeInterval = 1.8f, SightDay = 40, SightNight = 40, ArmorBody = 0.2f, Drops = new[] { "jodium", "schroot", "medkit" } },
             [NpcType.Mutantwolf] = new NpcDef { Type = NpcType.Mutantwolf, Name = "Mutantwolf", Faction = Faction.Mutant, Health = 60, Speed = 2.2f, RunSpeed = 8.4f, Height = 0.95f, Radius = 0.42f, MeleeDamage = 13, MeleeRange = 1.5f, MeleeInterval = 0.7f, SightDay = 45, SightNight = 45, Hearing = 2f, Drops = new[] { "vlees", "vlees" } },
             [NpcType.Overlever] = new NpcDef { UsesCover = true, Type = NpcType.Overlever, Name = "Overlever", Faction = Faction.Overlever, Health = 90, Speed = 1.5f, RunSpeed = 5.4f, MeleeDamage = 10, SightDay = 55, SightNight = 25, FleeBelow = 0.25f, Accuracy = 2.4f, PreferredRange = 16, Drops = new[] { "doppen", "brood", "water" } },
+            [NpcType.Zwerver] = new NpcDef { UsesCover = true, Type = NpcType.Zwerver, Name = "Zwerver", Faction = Faction.Overlever, Health = 90, Speed = 1.5f, RunSpeed = 5.6f, MeleeDamage = 11, SightDay = 60, SightNight = 26, FleeBelow = 0.15f, Accuracy = 2.2f, PreferredRange = 14, Drops = new[] { "doppen", "water", "verband" } },
             [NpcType.Hert] = new NpcDef { Type = NpcType.Hert, Name = "Hert", Faction = Faction.Dier, Health = 55, Speed = 1.3f, RunSpeed = 9f, Height = 1.4f, Radius = 0.45f, SightDay = 50, SightNight = 20, Hearing = 2.2f, Passive = true, Drops = new[] { "vlees", "vlees", "vlees", "vacht" } },
         };
 
@@ -73,6 +74,12 @@ namespace Deadhaul.Core
         public string Line;                 // wat hij zegt als je hem aanspreekt
         public V3 LastSeen;
         public V3 Cover;                    // dekkingspunt
+        public int LeaderId = -1;           // metgezel: volgt deze actor
+        public bool Waiting;                // metgezel wacht op WaitPos
+        public V3 WaitPos;
+        public int Group;                   // spawngroep (raiders eisen samen tol)
+        public int Toll;                    // doppen die deze raider eist (0 = valt gewoon aan)
+        public bool Paid;                   // speler heeft betaald: laat hem met rust
         public bool HasCover, InCover;
         public float CoverSearch, CoverHold, HurtTime = 99f;
         public Stack Weapon;
@@ -140,7 +147,7 @@ namespace Deadhaul.Core
             float seenDist = seen != null ? Dist(n.Pos, seen.Pos) : float.MaxValue;
 
             // geluiden
-            if (n.State != NpcState.Aanvallen && n.State != NpcState.Vluchten)
+            if (n.State != NpcState.Aanvallen && n.State != NpcState.Vluchten && n.State != NpcState.Eisen && n.LeaderId < 0)
                 foreach (var no in ctx.Noise.Recent)
                 {
                     if (no.Source == n.Id) continue;
@@ -154,19 +161,54 @@ namespace Deadhaul.Core
                 }
 
             // ---------------- beslissen
-            if (target != null && n.Awareness >= 1f)
+            // net geraakt door iemand die hij niet ziet: omdraaien en terugvechten
+            bool justHit = target != null && n.HurtTime < 3f && n.LastAttacker == target.Id;
+            if (justHit && seen != target && n.HurtTime < dt * 1.5f)
             {
-                if (def.Passive || (def.FleeBelow > 0 && n.Health < n.MaxHealth * def.FleeBelow)) n.State = NpcState.Vluchten;
-                else n.State = NpcState.Aanvallen;
+                var from = target.Pos - n.Pos;
+                n.Yaw = MathF.Atan2(from.X, from.Z) * 57.2958f;
+                n.LastSeen = target.Pos;
             }
+            if (target != null && (n.Awareness >= 1f || justHit))
+            {
+                bool provoked = n.LastAttacker == target.Id;
+                float td = Dist(n.Pos, target.Pos);
+                if (def.Passive || (def.FleeBelow > 0 && n.Health < n.MaxHealth * def.FleeBelow)) n.State = NpcState.Vluchten;
+                else if (n.State == NpcState.Eisen)
+                {
+                    // wie te dichtbij komt, schiet of te lang wacht, krijgt de kogel
+                    if (provoked || td < 3.5f || n.StateTime > 30f) { n.State = NpcState.Aanvallen; n.StateTime = 0; }
+                }
+                else if (n.State != NpcState.Aanvallen && target == ctx.Player && n.Toll > 0 && !n.Paid && !provoked && td > 5f)
+                { n.State = NpcState.Eisen; n.StateTime = 0; }
+                else n.State = NpcState.Aanvallen;
+                // metgezellen laten zich niet te ver van de leider weglokken
+                if (n.LeaderId >= 0 && n.State == NpcState.Aanvallen && ctx.Actors.Get(n.LeaderId) is Actor ld && Dist(n.Pos, ld.Pos) > 35f) { n.State = NpcState.Zwerven; n.TargetId = -1; }
+            }
+            else if (n.State == NpcState.Eisen && (n.Paid || n.StateTime > 40f)) { n.State = NpcState.Zwerven; n.StateTime = 0; }
             else if (n.State == NpcState.Aanvallen && n.SeenTime > 6f) { n.State = NpcState.Onderzoeken; n.Goal = n.LastSeen; n.StateTime = 0; }
             else if (n.State == NpcState.Vluchten && n.StateTime > 12f) { n.State = NpcState.Zwerven; n.StateTime = 0; }
             else if (n.State == NpcState.Onderzoeken && (n.StateTime > 15f || Dist(n.Pos, n.Goal) < 1.5f)) { n.State = NpcState.Zwerven; n.StateTime = 0; }
 
             // ---------------- handelen
             V3 move = new V3(0, 0, 0); float speed = 0; bool run = false;
-            switch (n.State)
+            var leader = n.LeaderId >= 0 ? ctx.Actors.Get(n.LeaderId) : null;
+            if (leader != null && n.State != NpcState.Aanvallen && n.State != NpcState.Vluchten)
             {
+                Follow(n, leader, ref move, ref speed, ref run);
+                if (n.State != NpcState.Rust) n.State = NpcState.Zwerven;
+            }
+            else switch (n.State)
+            {
+                case NpcState.Eisen:
+                {
+                    if (target == null) break;
+                    var to = target.Pos - n.Pos;
+                    n.Yaw = MathF.Atan2(to.X, to.Z) * 57.2958f;
+                    float d = Dist(n.Pos, target.Pos);
+                    if (d > 14f) { move = to; speed = def.Speed; }
+                    break;
+                }
                 case NpcState.Zwerven:
                 case NpcState.Rust:
                     if (Dist(n.Pos, n.Goal) < 1.2f || n.StateTime > 20f)
@@ -248,7 +290,7 @@ namespace Deadhaul.Core
                     break;
                 }
             }
-            if (move.X * move.X + move.Z * move.Z > 1e-4f && n.State != NpcState.Aanvallen) n.Yaw = MathF.Atan2(move.X, move.Z) * 57.2958f;
+            if (move.X * move.X + move.Z * move.Z > 1e-4f && n.State != NpcState.Aanvallen && n.State != NpcState.Eisen) n.Yaw = MathF.Atan2(move.X, move.Z) * 57.2958f;
             if (run && n.State != NpcState.Vluchten && n.Def.Type != NpcType.Brute) ctx.Noise.Emit(n.Pos, 6, n.Id);
             Physics(n, dt, ctx, move, speed, true);
         }
@@ -257,7 +299,9 @@ namespace Deadhaul.Core
         public static Actor Sense(Npc n, float dt, AiContext ctx, out Actor target)
         {
             var def = n.Def;
-            if (!n.Angry && n.LastAttacker >= 0 && ctx.Actors.Get(n.LastAttacker)?.Faction == Faction.Speler && def.Faction == Faction.Overlever) n.Angry = true;
+            if (!n.Angry && n.LeaderId < 0 && n.LastAttacker >= 0 && ctx.Actors.Get(n.LastAttacker)?.Faction == Faction.Speler && def.Faction == Faction.Overlever) n.Angry = true;
+            bool spares = n.Paid && n.LastAttacker != ctx.Player?.Id;    // betaald en niet aangevallen
+            if (spares && n.TargetId == ctx.Player?.Id) n.TargetId = -1;
             target = n.TargetId >= 0 ? ctx.Actors.Get(n.TargetId) : null;
             if (target != null && !target.Alive) { target = null; n.TargetId = -1; }
             // rondkijken kost raycasts: vijf keer per seconde is genoeg
@@ -270,6 +314,10 @@ namespace Deadhaul.Core
                 {
                     if (a == n || !a.Alive) continue;
                     bool threat = def.Passive ? a.Faction != Faction.Dier : Npcs.Hostile(n.Faction, a.Faction) || (n.Angry && a.Faction == Faction.Speler);
+                    if (a.Faction == Faction.Speler && (spares || n.LeaderId >= 0)) threat = false;
+                    // tijdens onderhandelen: metgezellen houden het vuur in, de bende richt zich op de speler
+                    if (a is Npc an && n.LeaderId >= 0 && (an.Paid || an.State == NpcState.Eisen) && an.LastAttacker != n.Id) threat = false;
+                    if (a is Npc af && n.Toll > 0 && !n.Paid && af.LeaderId >= 0 && n.LastAttacker != af.Id) threat = false;
                     if (!threat) continue;
                     float d = Dist(n.Pos, a.Pos);
                     if (d > 130 || d >= best) continue;
@@ -320,6 +368,33 @@ namespace Deadhaul.Core
         }
 
         static float Gauss(Random r) => (float)((r.NextDouble() + r.NextDouble() + r.NextDouble()) / 3.0 - 0.5) * 2f;
+
+        /// <summary>Metgezel: blijft een paar meter achter de leider, rent bij als hij achterop raakt, of wacht.</summary>
+        static void Follow(Npc n, Actor leader, ref V3 move, ref float speed, ref bool run)
+        {
+            var def = n.Def;
+            var goal = n.Waiting ? n.WaitPos : leader.Pos;
+            float d = Dist(n.Pos, goal);
+            if (!n.Waiting && d > 70f)
+            {
+                // te ver weg (bijvoorbeeld na een autorit): bij de leider opduiken
+                n.Pos = new V3(leader.Pos.X - 2f, leader.Pos.Y + 0.5f, leader.Pos.Z - 2f);
+                n.Vel = new V3(0, 0, 0);
+                return;
+            }
+            float keep = n.Waiting ? 0.8f : 3.2f + (n.Seed % 3) * 0.8f;
+            if (d > keep)
+            {
+                move = goal - n.Pos;
+                speed = d > 10f ? def.RunSpeed : def.Speed * 1.3f;
+                run = d > 10f;
+            }
+            else if (leader is Actor l && !n.Waiting)
+            {
+                // stilstaan en dezelfde kant op kijken als de leider
+                n.Yaw = l.Yaw;
+            }
+        }
 
         /// <summary>
         /// Sluipaanval mogelijk? Slapend, nog niet gealarmeerd, of van achteren besprongen terwijl
@@ -466,12 +541,14 @@ namespace Deadhaul.Core
                 if (r < 0.75) return new Group { Type = NpcType.Bendelid, Count = 2 + rng.Next(3) };
                 if (r < 0.85) return new Group { Type = NpcType.Scherpschutter, Count = 1 };
                 if (r < 0.9) return new Group { Type = NpcType.Brute, Count = 1 };
+                if (!night && r < 0.95) return new Group { Type = NpcType.Zwerver, Count = 1 };
                 return null;
             }
             if (col.Kind == ColumnKind.Highway && r < 0.35) return new Group { Type = NpcType.Bendelid, Count = 2 + rng.Next(3) };
             if (r < 0.35) return new Group { Type = NpcType.Hert, Count = 1 + rng.Next(3) };
             if (r < (night ? 0.7 : 0.5)) return new Group { Type = NpcType.Mutantwolf, Count = 2 + rng.Next(3) };
             if (r < 0.62) return new Group { Type = NpcType.Aaseter, Count = 1 + rng.Next(2) };
+            if (!night && r < 0.7) return new Group { Type = NpcType.Zwerver, Count = 1 };
             if (night && r < 0.8) return new Group { Type = NpcType.Ghoul, Count = 1 + rng.Next(2) };
             return null;
         }
