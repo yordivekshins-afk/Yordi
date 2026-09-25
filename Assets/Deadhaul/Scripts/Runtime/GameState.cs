@@ -53,6 +53,7 @@ namespace Deadhaul
         public CombatSystem Combat { get; private set; }
         public Equipment Equipment { get; private set; } = new Equipment();
         public VehicleManager Vehicles { get; private set; }
+        public BaseSystem Base { get; private set; }
         public Survival Stats { get; private set; } = new Survival();
         public Inventory Inventory { get; private set; } = new Inventory();
         public GameClock Clock { get; private set; } = new GameClock();
@@ -99,6 +100,8 @@ namespace Deadhaul
             farms.GrowthScale = () => Weather.SeasonGrowth(Now.Season) * (1f + Now.Rain * 0.5f);
             Vehicles = new GameObject("Voertuigen").AddComponent<VehicleManager>();
             Vehicles.Init(this);
+            Base = new GameObject("Basis").AddComponent<BaseSystem>();
+            Base.Init(this);
 
             var cam = CreateCamera();
             precip = new GameObject("Neerslag").AddComponent<Precipitation>();
@@ -169,6 +172,7 @@ namespace Deadhaul
             Player.RefreshLook();
             Combat.ClearAll();
             Vehicles.Clear();
+            Base.Reset(null);
             SpawnAtStart(false);
         }
 
@@ -235,6 +239,13 @@ namespace Deadhaul
             Player.Flashlight = false;
             Player.RefreshLook();
             Combat.ClearAll();
+            if (Base.State.HasBed)
+            {
+                pendingSpawn = Base.State.BedSpawn; pendingFromSave = true; spawned = false;
+                Player.Teleport(pendingSpawn);
+                Hud.Message("Je wordt wakker in je eigen bed. Je spullen ben je kwijt — maar je kisten niet.");
+                return;
+            }
             SpawnAtStart(false);
             Hud.Message("Je wordt wakker in de straten van " + Gen.GetCity(0, 0).Name + ". Je spullen ben je kwijt.");
         }
@@ -306,7 +317,7 @@ namespace Deadhaul
         }
 
         // ------------------------------------------------------------ opslaan
-        const int SaveVersion = 4;      // 4: metgezellen
+        const int SaveVersion = 5;      // 4: metgezellen, 5: eigen basis
 
         public void Save()
         {
@@ -326,6 +337,7 @@ namespace Deadhaul
                 w.Write(Combat.Kills);
                 Vehicles.Write(w);
                 Combat.WriteFollowers(w);
+                Base.State.Write(w);
                 Chunks.Store.WriteEdits(w);
                 Hud.Message("Spel opgeslagen.");
             }
@@ -340,7 +352,7 @@ namespace Deadhaul
                 using var fs = File.OpenRead(SavePath);
                 using var r = new BinaryReader(fs);
                 int version = r.ReadInt32();
-                if (version != SaveVersion && version != 3) return false;
+                if (version > SaveVersion || version < 3) return false;
                 if (r.ReadInt32() != Seed) return false;
                 var p = new V3(r.ReadSingle(), r.ReadSingle(), r.ReadSingle());
                 Player.Yaw = r.ReadSingle(); Player.Pitch = r.ReadSingle();
@@ -352,6 +364,9 @@ namespace Deadhaul
                 Combat.Kills = r.ReadInt32();
                 Vehicles.Read(r);
                 if (version >= 4) Combat.ReadFollowers(r);
+                var bs = new BaseState();
+                if (version >= 5) bs.Read(r);
+                Base.Reset(bs);
                 Chunks.Store.ReadEdits(r);
                 Chunks.ReloadAll();
                 pendingSpawn = p; pendingFromSave = true; spawned = false;

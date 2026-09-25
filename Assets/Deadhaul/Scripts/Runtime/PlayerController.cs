@@ -544,6 +544,7 @@ namespace Deadhaul
             MineProgress += dt * mul / Mathf.Max(0.05f, info.Hardness);
             if (MineProgress < 1f) return;
             MineProgress = 0;
+            if (!Game.Base.CanBreak(Target.X, Target.Y, Target.Z, Target.Block)) return;
             int x = Target.X, y = Target.Y, z = Target.Z;
             var p = new Vector3((x + 0.5f) * World.VoxelSize, (y + 0.5f) * World.VoxelSize, (z + 0.5f) * World.VoxelSize);
             Fx.Instance.Burst(p, Vector3.up, Target.Block, 8, 2.5f, 0.06f, 1.1f);
@@ -597,6 +598,7 @@ namespace Deadhaul
         void Interact()
         {
             if (Game.Combat.TryPickArrow(Cam.transform.position, Cam.transform.forward)) return;
+            if (Target.Hit && Game.Base.Interact(Target.X, Target.Y, Target.Z, Target.Block)) return;
             if (Game.Combat.TryLootCorpse(Cam.transform.position, Cam.transform.forward)) return;
             if (Game.Combat.TryTalk(Cam.transform.position, Cam.transform.forward)) return;
             var veh = Game.Vehicles.LookedAt(Cam.transform.position, Cam.transform.forward, 4.5f + Vector3.Distance(Cam.transform.position, transform.position + Vector3.up * 1.5f));

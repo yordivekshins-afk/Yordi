@@ -13,8 +13,22 @@ namespace Deadhaul
         public const string ResourceFolder = "Deadhaul";
         static Material voxel, glass, highlight;
 
-        public static Material VoxelMaterial => voxel ? voxel : voxel = Load("VoxelLit") ?? CreateVoxelMaterial(BaseColorTexture(), MaskTexture(), EmissionTexture());
+        public static Material VoxelMaterial => voxel ? voxel : voxel = Fresh(Load("VoxelLit")) ?? CreateVoxelMaterial(BaseColorTexture(), MaskTexture(), EmissionTexture());
         public static Material GlassMaterial => glass ? glass : glass = Load("VoxelGlass") ?? CreateGlassMaterial(BaseColorTexture());
+
+        /// <summary>
+        /// Het opgeslagen materiaal met een vers palet: nieuwe bloksoorten krijgen zo altijd hun kleur,
+        /// ook als de palet-PNG's in Resources van een oudere versie zijn.
+        /// </summary>
+        static Material Fresh(Material saved)
+        {
+            if (saved == null) return null;
+            var m = new Material(saved) { name = saved.name };
+            m.SetTexture("_BaseColorMap", BaseColorTexture());
+            m.SetTexture("_MaskMap", MaskTexture());
+            m.SetTexture("_EmissiveColorMap", EmissionTexture());
+            return m;
+        }
         public static Material HighlightMaterial => highlight ? highlight : highlight = Load("Highlight") ?? CreateHighlightMaterial();
 
         static Material Load(string name) => Resources.Load<Material>($"{ResourceFolder}/{name}");

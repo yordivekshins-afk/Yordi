@@ -87,6 +87,15 @@ Werkafspraak uit het dossier blijft: **elke mijlpaal is speelbaar**, en er wordt
 - ✅ **Bunkers**: betonnen hutjes in de wildernis met een trap naar een ondergrondse zaal (kooien, voorraadrekken, wapenkamer met munitiekisten, militaire loot)
 - Nog te doen: metro's, instortende constructies
 
+## ✅ M9 – Eigen basis en energie (dossier S-06)
+
+- **Opslagkisten** die hun inhoud bewaren (24 vakken), **bed**: slaap de nacht door en word er wakker na je dood
+- **Generator** op brandstof: voedt tot 16 bouwlampen binnen 30 m, bromt hoorbaar — vijanden komen erop af
+- **Zonnepanelen**: laden overdag op (minder bij bewolking) en voeden 's nachts stil een paar lampen
+- **Bouwlampen** gaan 's nachts vanzelf aan als er stroom is en verlichten echt de omgeving
+- **Destilleerketel**: stook biodiesel uit frituurvet of maïs in een lege jerrycan; tanken geeft de lege jerrycan terug
+- Nog te doen: EV's en laadpalen, accubanken, elektrisch hekwerk, bewoners in je eigen basis
+
 ## ✅ M8 – Weer en seizoenen
 
 - Lente, zomer, herfst en winter (5 speldagen elk): de winter is koud en gewassen groeien bijna niet, in de zomer gaat het snel

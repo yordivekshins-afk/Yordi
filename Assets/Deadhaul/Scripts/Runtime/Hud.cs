@@ -44,12 +44,73 @@ namespace Deadhaul
         public bool LootOpen => loot != null;
         public bool TradeOpen => trade != null;
         public bool VehicleOpen => vehicle != null;
-        public bool CapturesInput => InventoryOpen || LootOpen || TradeOpen || VehicleOpen || MapOpen || DialogOpen || Paused || game.InMenu || game.Stats.Dead || !game.Ready;
+        public bool CapturesInput => InventoryOpen || LootOpen || TradeOpen || VehicleOpen || MapOpen || DialogOpen || StorageOpen || Paused || game.InMenu || game.Stats.Dead || !game.Ready;
 
         // gesprekken: een vraag met een paar keuzes (1–4 of klikken)
         public struct Choice { public string Label; public System.Action Act; public bool Enabled; public Choice(string l, System.Action a, bool e = true) { Label = l; Act = a; Enabled = e; } }
         string dlgTitle, dlgText; List<Choice> dlgChoices;
         public bool DialogOpen => dlgChoices != null;
+
+        // opslagkist: links de kist, rechts je rugzak
+        List<Stack> storage; string storageTitle; Vector2 storageScrollA, storageScrollB;
+        public bool StorageOpen => storage != null;
+        public void OpenStorage(List<Stack> items, string title) { storage = items; storageTitle = title; InventoryOpen = false; loot = null; trade = null; dlgChoices = null; }
+
+        void StorageWindow(float W, float H)
+        {
+            var r = new Rect(W / 2 - 440, H / 2 - 270, 880, 540);
+            Frame(r);
+            GUI.Label(new Rect(r.x + 20, r.y + 12, 400, 30), $"{char.ToUpper(storageTitle[0])}{storageTitle.Substring(1)}  ({storage.Count}/{BaseState.ChestSlots})", title);
+            GUI.Label(new Rect(r.x + 460, r.y + 12, 400, 30), "Rugzak", title);
+            // kist
+            var viewA = new Rect(r.x + 20, r.y + 56, 400, r.height - 120);
+            storageScrollA = GUI.BeginScrollView(viewA, storageScrollA, new Rect(0, 0, 380, storage.Count * 42));
+            for (int i = 0; i < storage.Count; i++)
+            {
+                var s = storage[i];
+                Fill(new Rect(0, i * 42 + 6, 26, 26), IconColor(s.Def));
+                GUI.Label(new Rect(34, i * 42 + 6, 250, 26), $"{s.Count}× {s.Def.Name}{(s.Def.GunDamage > 0 ? $"  ({s.Ammo})" : "")}", label);
+                if (GUI.Button(new Rect(296, i * 42 + 4, 80, 30), "Pak", button))
+                {
+                    if (Take(s, out var rest)) { storage.RemoveAt(i); i--; } else { storage[i] = rest; Message("Je rugzak zit vol."); }
+                    game.Player.RefreshTool();
+                }
+            }
+            GUI.EndScrollView();
+            // rugzak
+            var inv = game.Inventory;
+            var list = new List<int>();
+            for (int i = 0; i < inv.Capacity; i++) if (!inv.Slots[i].Empty) list.Add(i);
+            var viewB = new Rect(r.x + 460, r.y + 56, 400, r.height - 120);
+            storageScrollB = GUI.BeginScrollView(viewB, storageScrollB, new Rect(0, 0, 380, list.Count * 42));
+            for (int n = 0; n < list.Count; n++)
+            {
+                int i = list[n];
+                var s = inv.Slots[i];
+                Fill(new Rect(0, n * 42 + 6, 26, 26), IconColor(s.Def));
+                GUI.Label(new Rect(34, n * 42 + 6, 250, 26), $"{s.Count}× {s.Def.Name}{(i < Inventory.HotbarSize ? $"  [{i + 1}]" : "")}", label);
+                bool was = GUI.enabled;
+                GUI.enabled = storage.Count < BaseState.ChestSlots || storage.Exists(o => o.Id == s.Id && s.Def.MaxStack > 1 && o.Count < o.Def.MaxStack);
+                if (GUI.Button(new Rect(296, n * 42 + 4, 80, 30), "Leg", button))
+                {
+                    int left = s.Count;
+                    if (s.Def.MaxStack > 1)
+                        for (int k = 0; k < storage.Count && left > 0; k++)
+                        {
+                            var o = storage[k];
+                            if (o.Id != s.Id) continue;
+                            int add = Mathf.Min(left, o.Def.MaxStack - o.Count);
+                            o.Count += add; storage[k] = o; left -= add;
+                        }
+                    if (left > 0 && storage.Count < BaseState.ChestSlots) { var put = s; put.Count = left; storage.Add(put); left = 0; }
+                    if (left > 0) { s.Count = left; inv.Slots[i] = s; } else inv.Slots[i] = Stack.None;
+                    game.Player.RefreshTool();
+                }
+                GUI.enabled = was;
+            }
+            GUI.EndScrollView();
+            if (GUI.Button(new Rect(r.xMax - 140, r.yMax - 50, 120, 36), "Sluiten", button)) storage = null;
+        }
         public void OpenDialog(string title, string text, List<Choice> choices) { dlgTitle = title; dlgText = text; dlgChoices = choices; InventoryOpen = false; loot = null; trade = null; }
         public void CloseDialog() => dlgChoices = null;
 
@@ -119,6 +180,7 @@ namespace Deadhaul
                 if (SettingsOpen) SettingsOpen = false;
                 else if (MapOpen) MapOpen = false;
                 else if (DialogOpen) dlgChoices = null;
+                else if (StorageOpen) storage = null;
                 else if (LootOpen) loot = null;
                 else if (TradeOpen) trade = null;
                 else if (VehicleOpen) vehicle = null;
@@ -238,6 +300,7 @@ namespace Deadhaul
             if (TradeOpen) TradeWindow(W, H);
             if (VehicleOpen) VehicleWindow(W, H);
             if (DialogOpen) DialogWindow(W, H);
+            if (StorageOpen) StorageWindow(W, H);
             if (game.Player.Vehicle != null) DrivingHud(W, H);
             else if (!CapturesInput) Prompts(W, H);
             if (MapOpen) MapWindow(W, H);
@@ -889,8 +952,9 @@ namespace Deadhaul
                 if (GUI.Button(new Rect(r.x + 18, y + 6, 240, 32), "Tanken met jerrycan (+20 l)", button))
                 {
                     inv.Remove("jerrycan", 1);
+                    inv.Add("jerrycan_leeg", 1);
                     v.Fuel = Mathf.Min(v.Def.FuelCapacity, v.Fuel + 20);
-                    Message("Getankt.");
+                    Message("Getankt. De lege jerrycan houd je.");
                 }
                 GUI.enabled = true;
                 y += 46;

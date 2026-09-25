@@ -705,6 +705,45 @@ static class Program
             }
         }
 
+        Console.WriteLine("Eigen basis en energie");
+        {
+            var grid = new PowerGrid();
+            var gen1 = grid.AddSource(0, 40, 0, true);
+            var sun1 = grid.AddSource(200, 40, 0, false);
+            for (int i = 0; i < 20; i++) grid.AddLamp(i * 2, 41, 3);          // 20 lampen bij de generator
+            for (int i = 0; i < 6; i++) grid.AddLamp(200 + i, 41, 2);          // 6 bij het zonnepaneel
+            grid.AddLamp(500, 41, 0);                                          // ver weg
+            var lit = new HashSet<long>();
+            grid.Tick(1f, 0f, true, lit);
+            Check(lit.Count == 0, "zonder brandstof en zonder zon blijft alles donker");
+            gen1.Fuel = 20;
+            for (int h = 0; h < 8; h++) grid.Tick(1f, 0.9f, false, lit);         // een zonnige dag
+            Check(sun1.Charge > 10f && lit.Count == 0, $"overdag laadt het zonnepaneel op ({sun1.Charge:0.0} lampuren) en blijven de lampen uit");
+            grid.Tick(1f / 60f, 0f, true, lit);
+            int nearGen = 0, nearSun = 0; foreach (var k in lit) { var (x, _, _) = grid.Lamps[k]; if (x < 100) nearGen++; else if (x < 300) nearSun++; }
+            Check(nearGen == PowerGrid.GeneratorLamps && nearSun == PowerGrid.SolarLamps && !lit.Contains(VoxelStore.VoxelKey(500, 41, 0)),
+                $"'s nachts: generator voedt {nearGen} lampen, zonnepaneel {nearSun}, lampen buiten bereik blijven uit");
+            float fuel0 = gen1.Fuel;
+            for (int h = 0; h < 10; h++) grid.Tick(1f, 0f, true, lit);
+            Check(gen1.Fuel < fuel0 - 10f && sun1.Charge < 1f, $"de generator verbruikt brandstof ({fuel0:0} → {gen1.Fuel:0.0} l) en de accu raakt leeg");
+            gen1.Running = false; grid.Tick(1f, 0f, true, lit);
+            Check(lit.Count == 0 || !lit.Contains(VoxelStore.VoxelKey(0, 41, 3)), "generator uit = lampen uit");
+
+            var bs = new BaseState();
+            bs.Chest(5, 40, 5).Add(new Stack("ak", 1) { Ammo = 12 });
+            bs.Chest(5, 40, 5).Add(new Stack("9mm", 40));
+            bs.HasBed = true; bs.BedSpawn = new V3(2.5f, 20.5f, 3.5f);
+            var ms = new MemoryStream(); using (var w = new BinaryWriter(ms, System.Text.Encoding.UTF8, true)) bs.Write(w);
+            ms.Position = 0; var bs2 = new BaseState(); using (var r = new BinaryReader(ms)) bs2.Read(r);
+            var chest = bs2.Chest(5, 40, 5);
+            Check(chest.Count == 2 && chest[0].Ammo == 12 && bs2.HasBed && MathF.Abs(bs2.BedSpawn.Y - 20.5f) < 0.01f, "opslagkisten, generatoren en je bed worden opgeslagen");
+            var dinv = new Inventory();
+            Check(BaseState.Distill(dinv) != null, "zonder lege jerrycan geen biodiesel");
+            dinv.Add("jerrycan_leeg", 1); dinv.Add("frituurvet", 4);
+            Check(BaseState.Distill(dinv) == null && dinv.Count("jerrycan") == 1 && dinv.Count("frituurvet") == 0, "4 frituurvet + lege jerrycan = 20 l biodiesel");
+            Check(Array.Exists(Crafting.All, r => r.Result == "generator") && Items.Get("generator").PlaceBlock == B.Generator && Blocks.Info[B.WorkLampOn].Name != null, "generator, zonnepaneel en bouwlamp zijn te bouwen");
+        }
+
         if (args.Length > 0 && args[0] == "map")
         {
             string path = args.Length > 1 ? args[1] : "wereldkaart.png";

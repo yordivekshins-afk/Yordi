@@ -34,7 +34,8 @@ namespace Deadhaul.Core
             Farmland = 47, Potato = 48, Wheat = 49, Corn = 50, Cabbage = 51, Carrot = 52, Tomato = 53, Pumpkin = 54,
             SeedPotato = 55, SeedWheat = 56, SeedCorn = 57, SeedCabbage = 58, SeedCarrot = 59, SeedTomato = 60, SeedPumpkin = 61,
             Bed = 62, Cloth = 63, Well = 64,
-            Snow = 65, Mud = 66, Reed = 67, Cabinet = 68, Fridge = 69, Bin = 70, ExplosiveBarrel = 71, Mushroom = 72, BoneBlock = 73, Ice = 74;
+            Snow = 65, Mud = 66, Reed = 67, Cabinet = 68, Fridge = 69, Bin = 70, ExplosiveBarrel = 71, Mushroom = 72, BoneBlock = 73, Ice = 74,
+            Generator = 75, SolarPanel = 76, WorkLamp = 77, WorkLampOn = 78, Distiller = 79, StorageChest = 80;
         public const int Count = 75;
 
         // gewassen: rijp blok en het zaailing-blok per soort, in dezelfde volgorde
@@ -93,9 +94,9 @@ namespace Deadhaul.Core
                 case B.Snow: case B.Ice: return Surface.Sneeuw;
                 case B.Sand: case B.Ash: case B.Sandbag: return Surface.Zand;
                 case B.Gravel: case B.Rubble: case B.BoneBlock: return Surface.Grind;
-                case B.Planks: case B.WoodWall: case B.Log: case B.Crate: case B.Shelf: case B.Cabinet: case B.Fence: case B.Bed: case B.Roof: return Surface.Hout;
+                case B.Planks: case B.WoodWall: case B.Log: case B.Crate: case B.Shelf: case B.Cabinet: case B.Fence: case B.Bed: case B.Roof: case B.StorageChest: return Surface.Hout;
                 case B.Metal: case B.MetalWall: case B.Rust: case B.CarRed: case B.CarBlue: case B.CarGrey: case B.CarWhite:
-                case B.Barrel: case B.ExplosiveBarrel: case B.Bin: case B.Fridge: case B.AmmoCrate: return Surface.Metaal;
+                case B.Barrel: case B.ExplosiveBarrel: case B.Bin: case B.Fridge: case B.AmmoCrate: case B.Generator: case B.Distiller: case B.SolarPanel: return Surface.Metaal;
                 case B.Asphalt: case B.RoadLine: case B.Concrete: case B.Brick: case B.Stone: case B.Sidewalk: case B.Tile:
                 case B.StoneWall: case B.Plaster: case B.Bedrock: case B.Scorched: case B.Well: return Surface.Hard;
                 default: return Surface.Zacht;   // gras, aarde, modder, tapijt, akker, bladeren
@@ -174,7 +175,7 @@ namespace Deadhaul.Core
             Def(B.Tomato, "tomatenplant", 70, 118, 50, false, 0.2f, null, BlockFlags.Foliage);
             Def(B.Pumpkin, "pompoen", 214, 118, 36, false, 0.4f, null, BlockFlags.Foliage);
             for (int i = 0; i < 7; i++) Def((byte)(B.SeedPotato + i), "zaailing", 104, 150, 66, false, 0.1f, null, BlockFlags.Foliage);
-            Def(B.Bed, "bed", 150, 140, 120, true, 0.8f, "stof");
+            Def(B.Bed, "bed", 150, 140, 120, true, 0.8f, "bed");
             Def(B.Cloth, "zeildoek", 130, 116, 84, true, 0.4f, "stof");
             Def(B.Well, "waterput", 112, 110, 104, true, 3f, "steen");
             Def(B.Snow, "sneeuw", 232, 236, 240, true, 0.4f, "aarde", smooth: 0.35f);
@@ -187,6 +188,13 @@ namespace Deadhaul.Core
             Def(B.Mushroom, "gloeizwam", 120, 255, 200, false, 0.1f, "jodium", BlockFlags.Emissive | BlockFlags.Foliage);
             Def(B.BoneBlock, "gebleekte botten", 222, 214, 190, true, 0.8f, "steen");
             Def(B.Ice, "ijs", 170, 205, 225, true, 1f, null, smooth: 0.9f);
+            // eigen basis en energie
+            Def(B.Generator, "generator", 176, 146, 42, true, 2.5f, "generator", smooth: 0.45f, metal: 0.5f);
+            Def(B.SolarPanel, "zonnepaneel", 28, 40, 72, true, 1.5f, "zonnepaneel", smooth: 0.92f, metal: 0.3f);
+            Def(B.WorkLamp, "bouwlamp (uit)", 96, 94, 84, true, 0.8f, "bouwlamp", smooth: 0.5f, metal: 0.4f);
+            Def(B.WorkLampOn, "bouwlamp", 255, 236, 190, true, 0.8f, "bouwlamp", BlockFlags.Emissive);
+            Def(B.Distiller, "destilleerketel", 168, 104, 64, true, 2f, "destilleerketel", smooth: 0.7f, metal: 0.9f);
+            Def(B.StorageChest, "opslagkist", 104, 80, 46, true, 1f, "opslagkist");
             Def(B.Skin, "huid", 206, 160, 124, true, 1, null);
             Def(B.SkinDark, "huid", 142, 98, 70, true, 1, null);
             Def(B.Hair, "haar", 48, 36, 28, true, 1, null);
